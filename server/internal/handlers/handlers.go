@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -13,25 +14,87 @@ import (
 
 // GetDashboardStats 获取仪表盘统计数据
 func GetDashboardStats(c *gin.Context) {
-	var techCount, appointmentCount, memberCount int64
-	var totalRevenue float64
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	yesterday := today.AddDate(0, 0, -1)
 
-	db.DB.Model(&models.Technician{}).Count(&techCount)
-	db.DB.Model(&models.Appointment{}).Where("status = ?", "completed").Count(&appointmentCount)
-	db.DB.Model(&models.Member{}).Count(&memberCount)
+	// 1. 今日营收（已完成订单的实付金额总和）
+	var dailyRevenue float64
+	if err := db.DB.Model(&models.Order{}).
+		Where("status = ? AND DATE(created_at) = DATE(?)", "completed", today).
+		Select("COALESCE(SUM(actual_paid), 0)").
+		Scan(&dailyRevenue).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate daily revenue", err))
+		return
+	}
 
-	// 计算总营收
-	db.DB.Model(&models.Appointment{}).
-		Where("status = ?", "completed").
-		Select("COALESCE(SUM(actual_price), 0)").
-		Row().
-		Scan(&totalRevenue)
+	// 昨日营收（用于计算增长率）
+	var yesterdayRevenue float64
+	if err := db.DB.Model(&models.Order{}).
+		Where("status = ? AND DATE(created_at) = DATE(?)", "completed", yesterday).
+		Select("COALESCE(SUM(actual_paid), 0)").
+		Scan(&yesterdayRevenue).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate yesterday revenue", err))
+		return
+	}
+
+	// 计算增长率
+	var revenueGrowth float64
+	if yesterdayRevenue > 0 {
+		revenueGrowth = ((dailyRevenue - yesterdayRevenue) / yesterdayRevenue) * 100
+	}
+
+	// 2. 今日新增会员
+	var newMembers int64
+	if err := db.DB.Model(&models.Member{}).
+		Where("DATE(created_at) = DATE(?)", today).
+		Count(&newMembers).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count new members", err))
+		return
+	}
+
+	// 3. 活跃技师数量（状态为 free 或 booked 的技师）
+	var activeTechs int64
+	if err := db.DB.Model(&models.Technician{}).
+		Where("status IN ?", []int{0, 1}).
+		Count(&activeTechs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count active techs", err))
+		return
+	}
+
+	// 总技师数
+	var totalTechs int64
+	if err := db.DB.Model(&models.Technician{}).
+		Count(&totalTechs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count total techs", err))
+		return
+	}
+
+	// 4. 技师负载率（今日已完成预约数 / 总技师数 / 8小时 * 100）
+	var todayCompletedAppointments int64
+	if err := db.DB.Model(&models.Appointment{}).
+		Where("status = ? AND DATE(start_time) = DATE(?)", "completed", today).
+		Count(&todayCompletedAppointments).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count today appointments", err))
+		return
+	}
+
+	var occupancyRate float64
+	if totalTechs > 0 {
+		// 假设每个技师每天工作8小时，平均每个服务1.5小时
+		maxCapacity := float64(totalTechs) * 8 / 1.5
+		occupancyRate = (float64(todayCompletedAppointments) / maxCapacity) * 100
+		if occupancyRate > 100 {
+			occupancyRate = 100
+		}
+	}
 
 	stats := gin.H{
-		"tech_count":        int(techCount),
-		"appointment_count": int(appointmentCount),
-		"total_revenue":     totalRevenue,
-		"member_count":      memberCount,
+		"dailyRevenue":  dailyRevenue,
+		"revenueGrowth": revenueGrowth,
+		"newMembers":    newMembers,
+		"activeTechs":   activeTechs,
+		"occupancyRate": occupancyRate,
 	}
 
 	c.JSON(http.StatusOK, response.Success(stats, ""))
@@ -63,20 +126,29 @@ func ListAppointments(c *gin.Context) {
 // GetFissionRanking 获取分销排行榜
 func GetFissionRanking(c *gin.Context) {
 	type FissionRank struct {
-		InviterID       uint
-		Name            string
-		TotalCommission float64
-		OrderCount      int
+		ID              uint    `json:"id"`
+		Name            string  `json:"name"`
+		Phone           string  `json:"phone"`
+		Level           string  `json:"level"`
+		InviteCount     int64   `json:"inviteCount"`
+		TotalCommission float64 `json:"totalCommission"`
 	}
 
 	var rankings []FissionRank
-	db.DB.Table("fission_logs").
-		Select("fission_logs.inviter_id, members.name, SUM(commission_amount) as total_commission, COUNT(fission_logs.id) as order_count").
-		Joins("JOIN members ON members.id = fission_logs.inviter_id").
-		Group("fission_logs.inviter_id, members.name").
-		Order("total_commission DESC").
+
+	// 统计每个会员邀请的人数和累计佣金
+	if err := db.DB.Model(&models.Member{}).
+		Select("members.id, members.name, members.phone, members.level, COUNT(invitees.id) as invite_count, COALESCE(SUM(fission_logs.commission_amount), 0) as total_commission").
+		Joins("LEFT JOIN members AS invitees ON invitees.referrer_id = members.id").
+		Joins("LEFT JOIN fission_logs ON fission_logs.inviter_id = members.id").
+		Group("members.id, members.name, members.phone, members.level").
+		Having("COUNT(invitees.id) > 0").
+		Order("invite_count DESC, total_commission DESC").
 		Limit(10).
-		Find(&rankings)
+		Scan(&rankings).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get fission ranking", err))
+		return
+	}
 
 	c.JSON(http.StatusOK, response.Success(rankings, ""))
 }
@@ -359,12 +431,42 @@ func UpdateTechnician(c *gin.Context) {
 // DeleteTechnician 删除技师
 func DeleteTechnician(c *gin.Context) {
 	id := c.Param("id")
-	if err := db.DB.Delete(&models.Technician{}, id).Error; err != nil {
+
+	// 开启事务
+	tx := db.DB.Begin()
+
+	// 查找该技师是否有待服务的订单（status = 'pending'）
+	var pendingAppointments []models.Appointment
+	if err := tx.Where("tech_id = ? AND status = ?", id, "pending").Find(&pendingAppointments).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to query appointments", nil))
+		return
+	}
+
+	// 如果有待服务的订单，将状态修改为候补中（waitlist）
+	if len(pendingAppointments) > 0 {
+		if err := tx.Model(&models.Appointment{}).Where("tech_id = ? AND status = ?", id, "pending").Update("status", "waitlist").Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to update appointments to waitlist", nil))
+			return
+		}
+	}
+
+	// 删除技师
+	if err := tx.Delete(&models.Technician{}, id).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to delete technician", nil))
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Success(nil, "Technician deleted successfully"))
+	tx.Commit()
+
+	msg := "Technician deleted successfully"
+	if len(pendingAppointments) > 0 {
+		msg = fmt.Sprintf("%s. %d pending appointments moved to waitlist", msg, len(pendingAppointments))
+	}
+
+	c.JSON(http.StatusOK, response.Success(nil, msg))
 }
 
 // ListServiceItems 获取服务项目

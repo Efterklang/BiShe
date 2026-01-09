@@ -7,3 +7,15 @@ export const getDashboardStats = () => {
 export const getFissionRanking = () => {
 	return api.get("/api/fission/ranking");
 };
+
+export const getRevenueTrend = () => {
+	return api.get("/api/dashboard/revenue-trend");
+};
+
+export const getServiceRanking = () => {
+	return api.get("/api/dashboard/service-ranking");
+};
+
+export const getMonthlyStats = () => {
+	return api.get("/api/dashboard/monthly-stats");
+};

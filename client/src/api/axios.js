@@ -11,6 +11,11 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
 	(config) => {
+		// Add JWT token to Authorization header if available
+		const token = localStorage.getItem("token");
+		if (token) {
+			config.headers.Authorization = `Bearer ${token}`;
+		}
 		return config;
 	},
 	(error) => {
@@ -32,6 +37,17 @@ api.interceptors.response.use(
 	},
 	(error) => {
 		console.error("Network Error:", error);
+
+		// Handle 401 Unauthorized - redirect to login
+		if (error.response && error.response.status === 401) {
+			// Clear authentication data
+			localStorage.removeItem("token");
+			localStorage.removeItem("user");
+
+			// Redirect to login page
+			window.location.href = "/login";
+		}
+
 		return Promise.reject(error);
 	},
 );

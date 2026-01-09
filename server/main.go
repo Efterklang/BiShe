@@ -6,15 +6,20 @@ import (
 
 	"smartspa-admin/internal/db"
 	"smartspa-admin/internal/handlers"
+	"smartspa-admin/internal/middleware"
 	"smartspa-admin/internal/response"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	if _, err := db.Init("spa_management.db"); err != nil {
+	database, err := db.Init("spa_management.db")
+	if err != nil {
 		log.Fatalf("failed to init database: %v", err)
 	}
+
+	// Initialize handlers
+	dashboardHandler := handlers.NewDashboardHandler(database)
 
 	r := gin.Default()
 
@@ -35,36 +40,89 @@ func main() {
 		c.JSON(http.StatusOK, response.Success(gin.H{"status": "ok"}, ""))
 	})
 
-	// Dashboard APIs
-	r.GET("/api/dashboard/stats", handlers.GetDashboardStats)
-	r.GET("/api/appointments", handlers.ListAppointments)
-	r.GET("/api/fission/ranking", handlers.GetFissionRanking)
-	r.POST("/api/appointments", handlers.CreateAppointment)
-	r.PUT("/api/appointments/:id/cancel", handlers.CancelAppointment)
-	r.PUT("/api/appointments/:id/complete", handlers.CompleteAppointment)
+	// Public routes (no authentication required)
+	auth := r.Group("/api/auth")
+	{
+		auth.POST("/login", handlers.Login)
+	}
 
-	// Technician APIs
-	r.GET("/api/technicians", handlers.ListTechnicians)
-	r.POST("/api/technicians", handlers.CreateTechnician)
-	r.PUT("/api/technicians/:id", handlers.UpdateTechnician)
-	r.DELETE("/api/technicians/:id", handlers.DeleteTechnician)
+	// Protected routes (authentication required)
+	api := r.Group("/api")
+	api.Use(middleware.AuthRequired())
+	{
+		// Auth routes for authenticated users
+		api.GET("/auth/me", handlers.GetCurrentUser)
 
-	// Schedule APIs
-	r.GET("/api/schedules", handlers.GetSchedules)
-	r.POST("/api/schedules/batch", handlers.BatchSetSchedule)
+		// Dashboard APIs (both manager and operator)
+		api.GET("/dashboard/stats", handlers.GetDashboardStats)
+		api.GET("/dashboard/revenue-trend", dashboardHandler.GetRevenueTrend)
+		api.GET("/dashboard/service-ranking", dashboardHandler.GetServiceRanking)
+		api.GET("/dashboard/monthly-stats", dashboardHandler.GetMonthlyStats)
 
-	// Service Item APIs
-	r.GET("/api/services", handlers.ListServiceItems)
-	r.POST("/api/services", handlers.CreateServiceItem)
-	r.PUT("/api/services/:id", handlers.UpdateServiceItem)
-	r.DELETE("/api/services/:id", handlers.DeleteServiceItem)
+		// Appointments (both manager and operator)
+		api.GET("/appointments", handlers.ListAppointments)
+		api.POST("/appointments", handlers.CreateAppointment)
+		api.PUT("/appointments/:id/cancel", handlers.CancelAppointment)
+		api.PUT("/appointments/:id/complete", handlers.CompleteAppointment)
 
-	// Member APIs
-	r.GET("/api/members", handlers.ListMembers)
-	r.POST("/api/members", handlers.CreateMember)
+		// Fission ranking (both manager and operator)
+		api.GET("/fission/ranking", handlers.GetFissionRanking)
 
-	// AI APIs
-	r.GET("/api/ai/report", handlers.GenerateAIReport)
+		// Technicians (read for all, write for manager only)
+		api.GET("/technicians", handlers.ListTechnicians)
+
+		// Schedules (both manager and operator)
+		api.GET("/schedules", handlers.GetSchedules)
+		api.GET("/schedules/detail", handlers.GetTechnicianScheduleDetail)
+		api.GET("/schedules/available-technicians", handlers.GetAvailableTechnicians)
+		api.POST("/schedules/batch", handlers.BatchSetSchedule)
+
+		// Services (read for all, write for manager only)
+		api.GET("/services", handlers.ListServiceItems)
+
+		// Members (both manager and operator)
+		api.GET("/members", handlers.ListMembers)
+		api.POST("/members", handlers.CreateMember)
+
+		// Products (read for all, write for manager only)
+		api.GET("/products", handlers.ListProducts)
+		api.GET("/products/:id", handlers.GetProduct)
+		api.GET("/products/stats", handlers.GetProductStats)
+
+		// Inventory (both manager and operator can view and change)
+		api.GET("/inventory/logs", handlers.ListInventoryLogs)
+		api.GET("/inventory/products/:id/logs", handlers.GetProductInventoryLogs)
+		api.POST("/inventory/change", handlers.CreateInventoryChange)
+		api.POST("/inventory/batch-restock", handlers.BatchRestock)
+		api.GET("/inventory/stats", handlers.GetInventoryStats)
+	}
+
+	// Manager-only routes
+	managerAPI := r.Group("/api")
+	managerAPI.Use(middleware.AuthRequired(), middleware.RequireManager())
+	{
+		// User management (manager only)
+		managerAPI.POST("/auth/register", handlers.Register)
+		managerAPI.GET("/auth/users", handlers.ListUsers)
+
+		// Technician management (manager only)
+		managerAPI.POST("/technicians", handlers.CreateTechnician)
+		managerAPI.PUT("/technicians/:id", handlers.UpdateTechnician)
+		managerAPI.DELETE("/technicians/:id", handlers.DeleteTechnician)
+
+		// Service management (manager only)
+		managerAPI.POST("/services", handlers.CreateServiceItem)
+		managerAPI.PUT("/services/:id", handlers.UpdateServiceItem)
+		managerAPI.DELETE("/services/:id", handlers.DeleteServiceItem)
+
+		// Product management (manager only for create/update/delete)
+		managerAPI.POST("/products", handlers.CreateProduct)
+		managerAPI.PUT("/products/:id", handlers.UpdateProduct)
+		managerAPI.DELETE("/products/:id", handlers.DeleteProduct)
+
+		// AI report (manager only)
+		managerAPI.GET("/ai/report", handlers.GenerateAIReport)
+	}
 
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("server error: %v", err)

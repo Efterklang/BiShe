@@ -4,8 +4,13 @@ import { RouterLink, RouterView, useRoute } from "vue-router";
 import MarkdownIt from "markdown-it";
 import { generateAIReport } from "../api/ai";
 import { useTheme } from "../composables/useTheme";
+import { useAppStore } from "../stores/app";
+import { usePermission } from "../composables/usePermission";
+import UserMenu from "./UserMenu.vue";
 
 const { themePreference, setThemePreference } = useTheme();
+const appStore = useAppStore();
+const { canViewAI, canManageUsers } = usePermission();
 
 const md = new MarkdownIt();
 const STORAGE_KEY = "spa_ai_report";
@@ -72,14 +77,24 @@ const regenerateReport = () => {
     openAIAdvisor();
 };
 
-const menuItems = [
-    { name: "Dashboard", path: "/", icon: "📊" },
-    { name: "预约管理", path: "/appointments", icon: "📅" },
-    { name: "技师管理", path: "/technicians", icon: "💆" },
-    { name: "服务项目", path: "/services", icon: "📋" },
-    { name: "会员管理", path: "/members", icon: "👥" },
-    { name: "历史订单", path: "/history", icon: "📜" },
-];
+const menuItems = computed(() => {
+    const items = [
+        { name: "Dashboard", path: "/", icon: "📊" },
+        { name: "预约管理", path: "/appointments", icon: "📅" },
+        { name: "技师管理", path: "/technicians", icon: "💆" },
+        { name: "服务项目", path: "/services", icon: "📋" },
+        { name: "实体商品", path: "/products", icon: "📦" },
+        { name: "会员管理", path: "/members", icon: "👥" },
+        { name: "历史订单", path: "/history", icon: "📜" },
+    ];
+
+    // Add user management for managers only
+    if (canManageUsers.value) {
+        items.push({ name: "用户管理", path: "/users", icon: "👤" });
+    }
+
+    return items;
+});
 
 const toggleSidebar = () => {
     isSidebarOpen.value = !isSidebarOpen.value;
@@ -99,25 +114,28 @@ const toggleSidebar = () => {
             >
                 <span class="text-primary">Smart</span>Spa
             </div>
-            <button
-                @click="toggleSidebar"
-                class="p-2 text-base-content/70 hover:bg-base-200 rounded-md"
-            >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-6 h-6"
+            <div class="flex items-center gap-2">
+                <UserMenu />
+                <button
+                    @click="toggleSidebar"
+                    class="p-2 text-base-content/70 hover:bg-base-200 rounded-md"
                 >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-                    />
-                </svg>
-            </button>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke-width="1.5"
+                        stroke="currentColor"
+                        class="w-6 h-6"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                        />
+                    </svg>
+                </button>
+            </div>
         </div>
 
         <div class="flex">
@@ -129,9 +147,9 @@ const toggleSidebar = () => {
                 ]"
             >
                 <div class="flex flex-col h-full">
-                    <!-- Logo -->
+                    <!-- Logo and User Menu -->
                     <div
-                        class="h-16 flex items-center px-6 border-b border-base-200"
+                        class="h-16 flex items-center justify-between px-6 border-b border-base-200"
                     >
                         <div
                             class="flex items-center gap-2 font-bold text-xl tracking-tight"
@@ -141,7 +159,10 @@ const toggleSidebar = () => {
                             >
                                 S
                             </div>
-                            <span>SmartSpa</span>
+                            <span>XX养生店</span>
+                        </div>
+                        <div class="hidden lg:block">
+                            <UserMenu />
                         </div>
                     </div>
 
@@ -209,15 +230,13 @@ const toggleSidebar = () => {
                             </button>
                         </div>
                         <button
+                            v-if="canViewAI"
                             @click="openAIAdvisor"
                             class="w-full btn btn-primary btn-sm h-10 font-medium"
                         >
                             <span>🤖</span>
                             AI 经营顾问
                         </button>
-                        <p class="text-[10px] text-center text-base-content/40">
-                            Powered by LLM
-                        </p>
                     </div>
                 </div>
             </aside>

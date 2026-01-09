@@ -44,6 +44,55 @@ const handleCreateMember = async () => {
     submitting.value = false;
   }
 };
+
+// 根据 member id 生成一致的随机背景色
+const getAvatarBgColor = (memberId) => {
+  const colors = [
+    'bg-red-100',
+    'bg-blue-100',
+    'bg-green-100',
+    'bg-yellow-100',
+    'bg-purple-100',
+    'bg-pink-100',
+    'bg-indigo-100',
+    'bg-cyan-100',
+    'bg-orange-100',
+    'bg-lime-100'
+  ];
+  const index = (memberId % colors.length);
+  return colors[index];
+};
+
+// 获取对应字体颜色（与背景色匹配）
+const getAvatarTextColor = (memberId) => {
+  const textColors = [
+    'text-red-700',
+    'text-blue-700',
+    'text-green-700',
+    'text-yellow-700',
+    'text-purple-700',
+    'text-pink-700',
+    'text-indigo-700',
+    'text-cyan-700',
+    'text-orange-700',
+    'text-lime-700'
+  ];
+  const index = (memberId % textColors.length);
+  return textColors[index];
+};
+
+// 根据等级返回 badge 颜色
+const getLevelBadgeColor = (level) => {
+  const levelStr = level || '普通会员';
+  const colorMap = {
+    'basic': 'badge-ghost',
+    'vip': 'badge-success',
+    'silver': 'badge-warning',
+    'gold': 'badge-info',
+    'platinum': 'badge-primary',
+  };
+  return colorMap[levelStr] || 'badge-ghost';
+};
 </script>
 
 <template>
@@ -56,11 +105,9 @@ const handleCreateMember = async () => {
           查看会员列表、等级及消费记录，管理客户关系。
         </p>
       </div>
-      <button
-        @click="showModal = true"
-        class="btn btn-primary btn-sm"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 mr-2">
+      <button @click="showModal = true" class="btn btn-primary btn-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+          class="w-4 h-4 mr-2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
         注册会员
@@ -97,19 +144,21 @@ const handleCreateMember = async () => {
               <td class="px-6 py-4 text-base-content/50 font-mono text-xs">#{{ member.id }}</td>
               <td class="px-6 py-4 font-medium text-base-content">
                 <div class="flex items-center gap-3">
-                  <div class="w-8 h-8 rounded-full bg-base-200 flex items-center justify-center text-xs font-bold text-base-content/70">
-                     {{ member.name ? member.name.charAt(0) : '?' }}
+                  <div
+                    :class="[getAvatarBgColor(member.id), getAvatarTextColor(member.id), 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold']">
+                    {{ member.name ? member.name.charAt(0) : '?' }}
                   </div>
                   {{ member.name }}
                 </div>
               </td>
               <td class="px-6 py-4 text-base-content/80">{{ member.phone }}</td>
               <td class="px-6 py-4">
-                <span class="badge badge-ghost badge-sm">
+                <span :class="['badge badge-sm', getLevelBadgeColor(member.level || member.Level)]">
                   {{ member.level || member.Level || '普通会员' }}
                 </span>
               </td>
-              <td class="px-6 py-4 font-mono text-base-content">¥{{ member.yearly_total_consumption || member.YearlyTotalConsumption || 0 }}</td>
+              <td class="px-6 py-4 font-mono text-base-content">¥{{ member.yearly_total_consumption ||
+                member.YearlyTotalConsumption || 0 }}</td>
               <td class="px-6 py-4 font-mono text-success">¥{{ member.balance || member.Balance || 0 }}</td>
               <td class="px-6 py-4">
                 <code class="badge badge-neutral badge-outline font-mono text-xs">
@@ -133,7 +182,8 @@ const handleCreateMember = async () => {
         <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/30">
           <h3 class="font-semibold text-lg text-base-content">注册新会员</h3>
           <button @click="showModal = false" class="btn btn-ghost btn-sm btn-circle">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+              stroke="currentColor" class="w-5 h-5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -146,26 +196,16 @@ const handleCreateMember = async () => {
               <label class="label">
                 <span class="label-text font-medium">姓名</span>
               </label>
-              <input
-                type="text"
-                v-model="formData.name"
-                placeholder="请输入会员姓名"
-                class="input input-bordered w-full"
-                required
-              />
+              <input type="text" v-model="formData.name" placeholder="请输入会员姓名" class="input input-bordered w-full"
+                required />
             </div>
 
             <div class="form-control">
               <label class="label">
                 <span class="label-text font-medium">手机号</span>
               </label>
-              <input
-                type="tel"
-                v-model="formData.phone"
-                placeholder="请输入手机号"
-                class="input input-bordered w-full"
-                required
-              />
+              <input type="tel" v-model="formData.phone" placeholder="请输入手机号" class="input input-bordered w-full"
+                required />
             </div>
 
             <div class="form-control">
@@ -174,20 +214,12 @@ const handleCreateMember = async () => {
                   邀请码 <span class="text-base-content/40 font-normal">(选填)</span>
                 </span>
               </label>
-              <input
-                type="text"
-                v-model="formData.invitation_code"
-                placeholder="如有推荐人请填写"
-                class="input input-bordered w-full"
-              />
+              <input type="text" v-model="formData.invitation_code" placeholder="如有推荐人请填写"
+                class="input input-bordered w-full" />
             </div>
 
             <div class="pt-2">
-              <button
-                type="submit"
-                class="btn btn-primary w-full"
-                :disabled="submitting"
-              >
+              <button type="submit" class="btn btn-primary w-full" :disabled="submitting">
                 <span v-if="submitting" class="loading loading-spinner loading-xs"></span>
                 {{ submitting ? '注册中...' : '确认注册' }}
               </button>

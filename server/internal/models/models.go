@@ -7,6 +7,15 @@ import (
 	"gorm.io/gorm"
 )
 
+// User represents a system user with role-based access control.
+type User struct {
+	BaseModel
+	Username     string `gorm:"size:64;uniqueIndex;not null" json:"username"`
+	PasswordHash string `gorm:"size:255;not null" json:"-"`
+	Role         string `gorm:"size:32;not null" json:"role"` // "manager" or "operator"
+	IsActive     bool   `gorm:"default:true" json:"is_active"`
+}
+
 // BaseModel replaces gorm.Model with JSON tags
 type BaseModel struct {
 	ID        uint           `gorm:"primarykey" json:"id"`
@@ -78,4 +87,46 @@ type FissionLog struct {
 	InviteeID        uint    `gorm:"index;not null" json:"invitee_id"`
 	CommissionAmount float64 `gorm:"type:decimal(10,2);not null" json:"commission_amount"`
 	OrderID          *uint   `gorm:"index" json:"order_id"`
+}
+
+// PhysicalProduct represents physical products for sale in the store.
+type PhysicalProduct struct {
+	BaseModel
+	Name        string  `gorm:"size:128;not null" json:"name"`
+	Stock       int     `gorm:"not null;default:0" json:"stock"`                         // 库存数量
+	RetailPrice float64 `gorm:"type:decimal(10,2);not null" json:"retail_price"`         // 零售价
+	CostPrice   float64 `gorm:"type:decimal(10,2);not null;default:0" json:"cost_price"` // 进货价
+	Description string  `gorm:"size:500" json:"description"`                             // 商品描述
+	IsActive    bool    `gorm:"default:true" json:"is_active"`                           // 是否上架
+	ImageURL    string  `gorm:"size:255" json:"image_url"`                               // 商品图片
+}
+
+// InventoryLog records all inventory changes for physical products.
+type InventoryLog struct {
+	BaseModel
+	ProductID    uint            `gorm:"index;not null" json:"product_id"`
+	Product      PhysicalProduct `gorm:"foreignKey:ProductID" json:"product,omitempty"`
+	OperatorID   uint            `gorm:"index;not null" json:"operator_id"` // 操作员ID
+	Operator     User            `gorm:"foreignKey:OperatorID" json:"operator,omitempty"`
+	ChangeAmount int             `gorm:"not null" json:"change_amount"`       // 变动数量（正数为入库，负数为出库）
+	ActionType   string          `gorm:"size:32;not null" json:"action_type"` // "restock"(到货), "sale"(销售), "adjustment"(纠错)
+	BeforeStock  int             `gorm:"not null" json:"before_stock"`        // 变动前库存
+	AfterStock   int             `gorm:"not null" json:"after_stock"`         // 变动后库存
+	OrderID      *uint           `gorm:"index" json:"order_id"`               // 关联订单ID（销售时）
+	Remark       string          `gorm:"size:255" json:"remark"`              // 备注
+}
+
+// Order represents a purchase order (service or product).
+type Order struct {
+	BaseModel
+	MemberID      uint    `gorm:"index;not null" json:"member_id"`
+	Member        Member  `gorm:"foreignKey:MemberID" json:"member,omitempty"`
+	AppointmentID *uint   `gorm:"index" json:"appointment_id"`                     // 关联预约（服务类订单）
+	ProductID     *uint   `gorm:"index" json:"product_id"`                         // 关联商品（商品类订单）
+	Type          string  `gorm:"size:32;not null" json:"type"`                    // "service" or "product"
+	Quantity      int     `gorm:"not null;default:1" json:"quantity"`              // 数量（商品订单）
+	TotalAmount   float64 `gorm:"type:decimal(10,2);not null" json:"total_amount"` // 订单总额
+	ActualPaid    float64 `gorm:"type:decimal(10,2);not null" json:"actual_paid"`  // 实付金额
+	Status        string  `gorm:"size:32;default:'pending'" json:"status"`         // pending/completed/cancelled
+	PaymentMethod string  `gorm:"size:32" json:"payment_method"`                   // 支付方式
 }

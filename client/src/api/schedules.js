@@ -25,3 +25,23 @@ export const batchSetSchedule = (payload) => {
   }
   return api.post('/api/schedules/batch', payload);
 };
+
+/**
+ * 获取技师排班详情（包含预约信息）
+ * @param {Object} params - 查询参数
+ * @param {number} params.tech_id - 技师ID
+ * @param {string} params.date - 日期 YYYY-MM-DD
+ */
+export const getTechnicianScheduleDetail = (params) => {
+  return api.get('/api/schedules/detail', { params });
+};
+
+/**
+ * 获取指定时间段的可用技师列表
+ * @param {Object} params - 查询参数
+ * @param {string} params.start_time - 开始时间 RFC3339格式
+ * @param {number} params.service_id - 服务项目ID
+ */
+export const getAvailableTechnicians = (params) => {
+  return api.get('/api/schedules/available-technicians', { params });
+};

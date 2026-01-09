@@ -107,3 +107,146 @@ func BatchSetSchedule(c *gin.Context) {
 	tx.Commit()
 	c.JSON(http.StatusOK, gin.H{"code": 200, "msg": "排班设置成功"})
 }
+
+// GetAvailableTechnicians 获取指定时间段的可用技师列表
+// Query Params: start_time (RFC3339), service_id (必填，用于计算结束时间)
+func GetAvailableTechnicians(c *gin.Context) {
+	startTimeStr := c.Query("start_time")
+	serviceIDStr := c.Query("service_id")
+
+	if startTimeStr == "" || serviceIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "start_time and service_id are required"})
+		return
+	}
+
+	// 解析开始时间
+	startTime, err := time.Parse(time.RFC3339, startTimeStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "Invalid start_time format"})
+		return
+	}
+
+	// 获取服务项目信息，计算结束时间
+	var service models.ServiceItem
+	if err := db.DB.First(&service, serviceIDStr).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "msg": "Service not found"})
+		return
+	}
+
+	endTime := startTime.Add(time.Duration(service.Duration) * time.Minute)
+
+	// 获取所有技师
+	var allTechnicians []models.Technician
+	if err := db.DB.Find(&allTechnicians).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "Failed to fetch technicians"})
+		return
+	}
+
+	// 检查排班状态（是否在岗）
+	checkDate := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), 0, 0, 0, 0, time.UTC)
+	var schedules []models.Schedule
+	db.DB.Where("date = ?", checkDate).Find(&schedules)
+
+	scheduleMap := make(map[uint]bool)
+	for _, s := range schedules {
+		scheduleMap[s.TechID] = s.IsAvailable
+	}
+
+	// 查询该时间段有冲突的技师（有 pending 预约）
+	var conflictAppointments []models.Appointment
+	db.DB.Where("status = ? AND start_time < ? AND end_time > ?", "pending", endTime, startTime).
+		Find(&conflictAppointments)
+
+	busyTechMap := make(map[uint]bool)
+	for _, appt := range conflictAppointments {
+		busyTechMap[appt.TechID] = true
+	}
+
+	// 筛选可用技师
+	var availableTechnicians []models.Technician
+	var unavailableTechnicians []models.Technician
+
+	for _, tech := range allTechnicians {
+		// 检查是否在岗（默认在岗）
+		isAvailable, exists := scheduleMap[tech.ID]
+		if exists && !isAvailable {
+			// 休息中
+			unavailableTechnicians = append(unavailableTechnicians, tech)
+			continue
+		}
+
+		// 检查是否有冲突预约
+		if busyTechMap[tech.ID] {
+			// 忙碌中
+			unavailableTechnicians = append(unavailableTechnicians, tech)
+			continue
+		}
+
+		// 可用
+		availableTechnicians = append(availableTechnicians, tech)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 200,
+		"data": gin.H{
+			"available":   availableTechnicians,
+			"unavailable": unavailableTechnicians,
+			"total":       len(allTechnicians),
+		},
+		"msg": "success",
+	})
+}
+
+// GetTechnicianScheduleDetail 获取技师排班详情（包含预约信息）
+// Query Params: tech_id (required), date (YYYY-MM-DD, required)
+func GetTechnicianScheduleDetail(c *gin.Context) {
+	techIDStr := c.Query("tech_id")
+	dateStr := c.Query("date")
+
+	if techIDStr == "" || dateStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "tech_id and date are required"})
+		return
+	}
+
+	// 解析日期
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "Invalid date format"})
+		return
+	}
+
+	// 获取排班信息
+	var schedule models.Schedule
+	scheduleErr := db.DB.Where("tech_id = ? AND date = ?", techIDStr, date).First(&schedule).Error
+
+	// 如果没有排班记录，默认为可用
+	isAvailable := true
+	if scheduleErr == nil {
+		isAvailable = schedule.IsAvailable
+	}
+
+	// 获取当天该技师的预约列表
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	var appointments []models.Appointment
+	if err := db.DB.Where("tech_id = ? AND start_time >= ? AND start_time < ?", techIDStr, startOfDay, endOfDay).
+		Preload("Member").
+		Preload("ServiceItem").
+		Order("start_time ASC").
+		Find(&appointments).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "Failed to get appointments"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 200,
+		"data": gin.H{
+			"date":         dateStr,
+			"tech_id":      techIDStr,
+			"is_available": isAvailable,
+			"appointments": appointments,
+		},
+		"msg": "success",
+	})
+}
