@@ -6,6 +6,7 @@ import {
     completeAppointment,
 } from "../api/appointments";
 import AppointmentWizard from "../components/AppointmentWizard.vue";
+import Avatar from "../components/Avatar.vue";
 
 const appointments = ref([]);
 const loading = ref(true);
@@ -126,9 +127,7 @@ const showDetails = (appt) => {
 <template>
     <div class="max-w-7xl mx-auto">
         <!-- Header Section -->
-        <div
-            class="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4"
-        >
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-base-content">
                     预约管理
@@ -138,34 +137,18 @@ const showDetails = (appt) => {
                 </p>
             </div>
             <div class="flex items-center gap-3">
-                <select
-                    v-model="filterStatus"
-                    @change="fetchData"
-                    class="select select-bordered select-sm w-full max-w-xs"
-                >
+                <select v-model="filterStatus" @change="fetchData"
+                    class="select select-bordered select-sm w-full max-w-xs">
                     <option value="">所有状态</option>
                     <option value="pending">待服务</option>
                     <option value="waiting">候补中</option>
                     <option value="completed">已完成</option>
                     <option value="cancelled">已取消</option>
                 </select>
-                <button
-                    @click="showModal = true"
-                    class="btn btn-primary btn-sm"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke-width="2"
-                        stroke="currentColor"
-                        class="w-4 h-4 mr-2"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M12 4.5v15m7.5-7.5h-15"
-                        />
+                <button @click="showModal = true" class="btn btn-primary btn-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                        stroke="currentColor" class="w-4 h-4 mr-2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                     新建预约
                 </button>
@@ -173,14 +156,10 @@ const showDetails = (appt) => {
         </div>
 
         <!-- Appointments Table -->
-        <div
-            class="bg-base-100 rounded-box border border-base-200 shadow-sm overflow-hidden"
-        >
+        <div class="bg-base-100 rounded-box border border-base-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="table table-zebra w-full">
-                    <thead
-                        class="bg-base-200 text-base-content/70 uppercase text-xs"
-                    >
+                    <thead class="bg-base-200 text-base-content/70 uppercase text-xs">
                         <tr>
                             <th class="px-6 py-3 font-medium">ID</th>
                             <th class="px-6 py-3 font-medium">会员</th>
@@ -197,28 +176,17 @@ const showDetails = (appt) => {
                     <tbody class="text-sm">
                         <tr v-if="loading">
                             <td colspan="8" class="px-6 py-12 text-center">
-                                <span
-                                    class="loading loading-spinner loading-lg text-base-content/30"
-                                ></span>
+                                <span class="loading loading-spinner loading-lg text-base-content/30"></span>
                             </td>
                         </tr>
                         <tr v-else-if="appointments.length === 0">
-                            <td
-                                colspan="8"
-                                class="px-6 py-12 text-center text-base-content/50"
-                            >
+                            <td colspan="8" class="px-6 py-12 text-center text-base-content/50">
                                 暂无预约记录
                             </td>
                         </tr>
-                        <tr
-                            v-else
-                            v-for="appt in appointments"
-                            :key="appt.id"
-                            class="hover:bg-base-200/50 transition-colors"
-                        >
-                            <td
-                                class="px-6 py-4 text-base-content/50 font-mono text-xs"
-                            >
+                        <tr v-else v-for="appt in appointments" :key="appt.id"
+                            class="hover:bg-base-200/50 transition-colors">
+                            <td class="px-6 py-4 text-base-content/50 font-mono text-xs">
                                 #{{ appt.id }}
                             </td>
                             <td class="px-6 py-4 font-medium text-base-content">
@@ -226,18 +194,10 @@ const showDetails = (appt) => {
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-2">
-                                    <div
-                                        class="w-6 h-6 rounded-full bg-base-200 flex items-center justify-center text-xs font-bold text-base-content/70"
-                                    >
-                                        {{
-                                            getTechName(appt.technician).charAt(
-                                                0,
-                                            )
-                                        }}
-                                    </div>
+                                    <Avatar :name="getTechName(appt.technician)" size="xs" />
                                     <span class="text-base-content/80">{{
                                         getTechName(appt.technician)
-                                    }}</span>
+                                        }}</span>
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-base-content/80">
@@ -261,13 +221,10 @@ const showDetails = (appt) => {
                                 </div>
                             </td>
                             <td class="px-6 py-4">
-                                <span
-                                    :class="
-                                        getStatusBadge(
-                                            appt.status || appt.Status,
-                                        )
-                                    "
-                                >
+                                <span :class="getStatusBadge(
+                                    appt.status || appt.Status,
+                                )
+                                    ">
                                     {{
                                         getStatusText(
                                             appt.status || appt.Status,
@@ -278,34 +235,21 @@ const showDetails = (appt) => {
                             <td class="px-6 py-4 font-medium text-base-content">
                                 ¥{{ appt.actual_price || appt.ActualPrice }}
                             </td>
-                            <td
-                                class="px-6 py-4 text-right flex justify-end gap-2"
-                            >
-                                <button
-                                    @click="showDetails(appt)"
-                                    class="btn btn-ghost btn-xs"
-                                >
+                            <td class="px-6 py-4 text-right flex justify-end gap-2">
+                                <button @click="showDetails(appt)" class="btn btn-ghost btn-xs">
                                     详情
                                 </button>
-                                <button
-                                    v-if="
-                                        (appt.status || appt.Status) ===
-                                        'pending'
-                                    "
-                                    @click="handleComplete(appt.id)"
-                                    class="btn btn-success btn-outline btn-xs"
-                                >
+                                <button v-if="
+                                    (appt.status || appt.Status) ===
+                                    'pending'
+                                " @click="handleComplete(appt.id)" class="btn btn-success btn-outline btn-xs">
                                     完成
                                 </button>
-                                <button
-                                    v-if="
-                                        ['pending', 'waiting'].includes(
-                                            appt.status || appt.Status,
-                                        )
-                                    "
-                                    @click="handleCancel(appt.id)"
-                                    class="btn btn-error btn-outline btn-xs"
-                                >
+                                <button v-if="
+                                    ['pending', 'waiting'].includes(
+                                        appt.status || appt.Status,
+                                    )
+                                " @click="handleCancel(appt.id)" class="btn btn-error btn-outline btn-xs">
                                     取消
                                 </button>
                             </td>
@@ -316,10 +260,6 @@ const showDetails = (appt) => {
         </div>
 
         <!-- Appointment Wizard Modal -->
-        <AppointmentWizard
-            :show="showModal"
-            @close="showModal = false"
-            @success="handleAppointmentCreated"
-        />
+        <AppointmentWizard :show="showModal" @close="showModal = false" @success="handleAppointmentCreated" />
     </div>
 </template>

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { getMembers, createMember } from '../api/members';
+import Avatar from '../components/Avatar.vue';
 
 const members = ref([]);
 const loading = ref(true);
@@ -144,10 +145,7 @@ const getLevelBadgeColor = (level) => {
               <td class="px-6 py-4 text-base-content/50 font-mono text-xs">#{{ member.id }}</td>
               <td class="px-6 py-4 font-medium text-base-content">
                 <div class="flex items-center gap-3">
-                  <div
-                    :class="[getAvatarBgColor(member.id), getAvatarTextColor(member.id), 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold']">
-                    {{ member.name ? member.name.charAt(0) : '?' }}
-                  </div>
+                  <Avatar :name="member.name" size="sm" />
                   {{ member.name }}
                 </div>
               </td>
