@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { getMembers, createMember } from '../api/members';
 import Avatar from '../components/Avatar.vue';
+import MemberLevel from '../components/MemberLevel.vue';
 
 const members = ref([]);
 const loading = ref(true);
@@ -82,18 +83,7 @@ const getAvatarTextColor = (memberId) => {
   return textColors[index];
 };
 
-// 根据等级返回 badge 颜色
-const getLevelBadgeColor = (level) => {
-  const levelStr = level || '普通会员';
-  const colorMap = {
-    'basic': 'badge-ghost',
-    'vip': 'badge-success',
-    'silver': 'badge-warning',
-    'gold': 'badge-info',
-    'platinum': 'badge-primary',
-  };
-  return colorMap[levelStr] || 'badge-ghost';
-};
+
 </script>
 
 <template>
@@ -150,11 +140,9 @@ const getLevelBadgeColor = (level) => {
                 </div>
               </td>
               <td class="px-6 py-4 text-base-content/80">{{ member.phone }}</td>
-              <td class="px-6 py-4">
-                <span :class="['badge badge-sm', getLevelBadgeColor(member.level || member.Level)]">
-                  {{ member.level || member.Level || '普通会员' }}
-                </span>
-              </td>
+               <td class="px-6 py-4">
+                 <MemberLevel :level="member.level || member.Level" />
+               </td>
               <td class="px-6 py-4 font-mono text-base-content">¥{{ member.yearly_total_consumption ||
                 member.YearlyTotalConsumption || 0 }}</td>
               <td class="px-6 py-4 font-mono text-success">¥{{ member.balance || member.Balance || 0 }}</td>
