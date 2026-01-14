@@ -8,8 +8,8 @@ export const getFissionRanking = () => {
 	return api.get("/api/fission/ranking");
 };
 
-export const getRevenueTrend = () => {
-	return api.get("/api/dashboard/revenue-trend");
+export const getRevenueTrend = (params) => {
+	return api.get("/api/dashboard/revenue-trend", { params });
 };
 
 export const getServiceRanking = () => {
@@ -18,4 +18,8 @@ export const getServiceRanking = () => {
 
 export const getMonthlyStats = () => {
 	return api.get("/api/dashboard/monthly-stats");
+};
+
+export const getProductSales = (params) => {
+	return api.get("/api/dashboard/product-sales", { params });
 };

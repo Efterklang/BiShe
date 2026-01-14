@@ -57,6 +57,7 @@ func main() {
 		api.GET("/dashboard/stats", handlers.GetDashboardStats)
 		api.GET("/dashboard/revenue-trend", dashboardHandler.GetRevenueTrend)
 		api.GET("/dashboard/service-ranking", dashboardHandler.GetServiceRanking)
+		api.GET("/dashboard/product-sales", dashboardHandler.GetProductSalesOverview)
 		api.GET("/dashboard/monthly-stats", dashboardHandler.GetMonthlyStats)
 
 		// Appointments (both manager and operator)

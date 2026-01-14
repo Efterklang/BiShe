@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -110,42 +111,77 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 	}, ""))
 }
 
-// GetRevenueTrend returns revenue trend for the last 30 days
-// GET /api/dashboard/revenue-trend
+// GetRevenueTrend returns revenue trend for a specified period
+// GET /api/dashboard/revenue-trend?days=7|30|90
 func (h *DashboardHandler) GetRevenueTrend(c *gin.Context) {
+	// 获取时间范围参数，默认30天
+	days := 30
+	if daysParam := c.Query("days"); daysParam != "" {
+		if parsedDays, err := strconv.Atoi(daysParam); err == nil && parsedDays > 0 {
+			days = parsedDays
+			if days > 365 {
+				days = 365 // 限制最多一年
+			}
+		}
+	}
+
 	now := time.Now()
-	thirtyDaysAgo := now.AddDate(0, 0, -30)
+	startDate := now.AddDate(0, 0, -days)
 
 	type DailyRevenue struct {
+		Date           string  `json:"date"`
+		ServiceRevenue float64 `json:"service_revenue"`
+		ProductRevenue float64 `json:"product_revenue"`
+	}
+
+	// 统计服务营收（从 appointments 表）
+	var serviceRevenues []struct {
 		Date    string  `json:"date"`
 		Revenue float64 `json:"revenue"`
 	}
-
-	var dailyRevenues []DailyRevenue
-
-	// 按日期分组统计营收
-	if err := h.db.Model(&models.Order{}).
-		Select("DATE(created_at) as date, COALESCE(SUM(actual_paid), 0) as revenue").
-		Where("status = ? AND created_at >= ?", "completed", thirtyDaysAgo).
+	if err := h.db.Model(&models.Appointment{}).
+		Select("DATE(created_at) as date, COALESCE(SUM(actual_price), 0) as revenue").
+		Where("status = ? AND created_at >= ?", "completed", startDate).
 		Group("DATE(created_at)").
 		Order("date ASC").
-		Scan(&dailyRevenues).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get revenue trend", err.Error()))
+		Scan(&serviceRevenues).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get service revenue trend", err.Error()))
 		return
 	}
 
-	// 填充缺失的日期（如果某天没有订单）
-	dateMap := make(map[string]float64)
-	for _, dr := range dailyRevenues {
-		dateMap[dr.Date] = dr.Revenue
+	// 统计商品营收（从 orders 表，type='product'）
+	var productRevenues []struct {
+		Date    string  `json:"date"`
+		Revenue float64 `json:"revenue"`
+	}
+	if err := h.db.Model(&models.Order{}).
+		Select("DATE(created_at) as date, COALESCE(SUM(actual_paid), 0) as revenue").
+		Where("type = ? AND status = ? AND created_at >= ?", "product", "completed", startDate).
+		Group("DATE(created_at)").
+		Order("date ASC").
+		Scan(&productRevenues).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get product revenue trend", err.Error()))
+		return
 	}
 
-	result := make([]DailyRevenue, 30)
-	for i := 0; i < 30; i++ {
-		date := now.AddDate(0, 0, -29+i).Format("2006-01-02")
+	// 填充缺失的日期
+	serviceDateMap := make(map[string]float64)
+	for _, sr := range serviceRevenues {
+		serviceDateMap[sr.Date] = sr.Revenue
+	}
+
+	productDateMap := make(map[string]float64)
+	for _, pr := range productRevenues {
+		productDateMap[pr.Date] = pr.Revenue
+	}
+
+	result := make([]DailyRevenue, days)
+	for i := 0; i < days; i++ {
+		date := now.AddDate(0, 0, -(days-1)+i).Format("2006-01-02")
 		result[i] = DailyRevenue{
-			Date:    date,
-			Revenue: dateMap[date],
+			Date:           date,
+			ServiceRevenue: serviceDateMap[date],
+			ProductRevenue: productDateMap[date],
 		}
 	}
 
@@ -262,5 +298,80 @@ func (h *DashboardHandler) GetMonthlyStats(c *gin.Context) {
 		"monthlyNewMembers": monthlyNewMembers,
 		"monthlyOrders":     monthlyOrders,
 		"activeMembers":     activeMembers,
+	}, ""))
+}
+
+// GetProductSalesOverview returns product sales overview
+// GET /api/dashboard/product-sales
+func (h *DashboardHandler) GetProductSalesOverview(c *gin.Context) {
+	// 获取时间范围参数，默认近30天
+	days := 30
+	if daysParam := c.Query("days"); daysParam != "" {
+		if parsedDays, err := strconv.Atoi(daysParam); err == nil && parsedDays > 0 {
+			days = parsedDays
+			if days > 365 {
+				days = 365 // 限制最多一年
+			}
+		}
+	}
+
+	now := time.Now()
+	startDate := now.AddDate(0, 0, -days)
+
+	type ProductSales struct {
+		ProductID    uint    `json:"product_id"`
+		ProductName  string  `json:"product_name"`
+		SalesCount   int64   `json:"sales_count"`
+		TotalRevenue float64 `json:"total_revenue"`
+	}
+
+	var topProducts []ProductSales
+
+	// 统计热销商品
+	if err := h.db.Model(&models.Order{}).
+		Select("physical_products.id as product_id, physical_products.name as product_name, COUNT(orders.id) as sales_count, COALESCE(SUM(orders.actual_paid), 0) as total_revenue").
+		Joins("JOIN physical_products ON physical_products.id = orders.product_id").
+		Where("orders.type = ? AND orders.status = ? AND orders.created_at >= ?", "product", "completed", startDate).
+		Group("physical_products.id, physical_products.name").
+		Order("sales_count DESC").
+		Limit(5).
+		Scan(&topProducts).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get product sales", err.Error()))
+		return
+	}
+
+	// 统计总销售额和总销量
+	var totalRevenue float64
+	var totalSales int64
+	if err := h.db.Model(&models.Order{}).
+		Where("type = ? AND status = ? AND created_at >= ?", "product", "completed", startDate).
+		Select("COALESCE(SUM(actual_paid), 0)").
+		Scan(&totalRevenue).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate total revenue", err.Error()))
+		return
+	}
+
+	if err := h.db.Model(&models.Order{}).
+		Where("type = ? AND status = ? AND created_at >= ?", "product", "completed", startDate).
+		Count(&totalSales).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count total sales", err.Error()))
+		return
+	}
+
+	// 统计库存预警（库存低于10的商品数）
+	var lowStockCount int64
+	if err := h.db.Model(&models.PhysicalProduct{}).
+		Where("stock < ? AND is_active = ?", 10, true).
+		Count(&lowStockCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count low stock", err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(gin.H{
+		"topProducts":    topProducts,
+		"totalRevenue":   totalRevenue,
+		"totalSales":     totalSales,
+		"lowStockCount":  lowStockCount,
+		"periodDays":     days,
 	}, ""))
 }
