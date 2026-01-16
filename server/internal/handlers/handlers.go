@@ -176,7 +176,7 @@ func CreateAppointment(c *gin.Context) {
 	}
 
 	// Get Service details for duration and price
-	var service models.ServiceItem
+	var service models.ServiceProduct
 	if err := db.DB.First(&service, req.ServiceID).Error; err != nil {
 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, "Service not found", nil))
 		return
@@ -471,8 +471,8 @@ func DeleteTechnician(c *gin.Context) {
 
 // ListServiceItems 获取服务项目
 func ListServiceItems(c *gin.Context) {
-	var items []models.ServiceItem
-	query := db.DB.Model(&models.ServiceItem{})
+	var items []models.ServiceProduct
+	query := db.DB.Model(&models.ServiceProduct{})
 
 	if c.Query("active_only") == "true" {
 		query = query.Where("is_active = ?", true)
@@ -488,7 +488,7 @@ func ListServiceItems(c *gin.Context) {
 
 // CreateServiceItem 创建服务项目
 func CreateServiceItem(c *gin.Context) {
-	var item models.ServiceItem
+	var item models.ServiceProduct
 	if err := c.ShouldBindJSON(&item); err != nil {
 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, err.Error(), nil))
 		return
@@ -510,13 +510,13 @@ func CreateServiceItem(c *gin.Context) {
 // UpdateServiceItem 更新服务项目
 func UpdateServiceItem(c *gin.Context) {
 	id := c.Param("id")
-	var item models.ServiceItem
+	var item models.ServiceProduct
 	if err := db.DB.First(&item, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, response.Error(http.StatusNotFound, "Service item not found", nil))
 		return
 	}
 
-	var req models.ServiceItem
+	var req models.ServiceProduct
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, err.Error(), nil))
 		return
@@ -526,6 +526,7 @@ func UpdateServiceItem(c *gin.Context) {
 	item.Duration = req.Duration
 	item.Price = req.Price
 	item.IsActive = req.IsActive
+	item.ImageURL = req.ImageURL
 
 	if err := db.DB.Save(&item).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to update service item", nil))
@@ -538,7 +539,7 @@ func UpdateServiceItem(c *gin.Context) {
 // DeleteServiceItem 删除服务项目
 func DeleteServiceItem(c *gin.Context) {
 	id := c.Param("id")
-	if err := db.DB.Delete(&models.ServiceItem{}, id).Error; err != nil {
+	if err := db.DB.Delete(&models.ServiceProduct{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to delete service item", nil))
 		return
 	}

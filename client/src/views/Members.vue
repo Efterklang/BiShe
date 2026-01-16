@@ -140,9 +140,9 @@ const getAvatarTextColor = (memberId) => {
                 </div>
               </td>
               <td class="px-6 py-4 text-base-content/80">{{ member.phone }}</td>
-               <td class="px-6 py-4">
-                 <MemberLevel :level="member.level || member.Level" />
-               </td>
+              <td class="px-6 py-4">
+                <MemberLevel :level="member.level || member.Level" />
+              </td>
               <td class="px-6 py-4 font-mono text-base-content">¥{{ member.yearly_total_consumption ||
                 member.YearlyTotalConsumption || 0 }}</td>
               <td class="px-6 py-4 font-mono text-success">¥{{ member.balance || member.Balance || 0 }}</td>

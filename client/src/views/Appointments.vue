@@ -197,7 +197,7 @@ const showDetails = (appt) => {
                                     <Avatar :name="getTechName(appt.technician)" size="xs" />
                                     <span class="text-base-content/80">{{
                                         getTechName(appt.technician)
-                                        }}</span>
+                                    }}</span>
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-base-content/80">

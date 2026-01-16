@@ -185,7 +185,7 @@ const handleSubmit = async () => {
         console.error("Failed to create appointment:", error);
         alert(
             "创建预约失败: " +
-                (error.response?.data?.msg || error.message || "未知错误"),
+            (error.response?.data?.msg || error.message || "未知错误"),
         );
     } finally {
         submitting.value = false;
@@ -241,13 +241,9 @@ watch(
 
 <template>
     <dialog class="modal" :class="{ 'modal-open': show }">
-        <div
-            class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl max-w-2xl p-0 overflow-hidden"
-        >
+        <div class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl max-w-2xl p-0 overflow-hidden">
             <!-- Modal Header -->
-            <div
-                class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50"
-            >
+            <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
                 <div>
                     <h3 class="font-bold text-lg text-base-content">
                         新建预约
@@ -256,23 +252,10 @@ watch(
                         步骤 {{ currentStep }} / 3
                     </div>
                 </div>
-                <button
-                    @click="closeModal"
-                    class="btn btn-ghost btn-sm btn-square"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke-width="2"
-                        stroke="currentColor"
-                        class="w-5 h-5"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M6 18L18 6M6 6l12 12"
-                        />
+                <button @click="closeModal" class="btn btn-ghost btn-sm btn-square">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                        stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
@@ -280,22 +263,13 @@ watch(
             <!-- Progress Steps -->
             <div class="px-6 pt-4">
                 <ul class="steps steps-horizontal w-full">
-                    <li
-                        class="step"
-                        :class="currentStep >= 1 ? 'step-primary' : ''"
-                    >
+                    <li class="step" :class="currentStep >= 1 ? 'step-primary' : ''">
                         选择服务
                     </li>
-                    <li
-                        class="step"
-                        :class="currentStep >= 2 ? 'step-primary' : ''"
-                    >
+                    <li class="step" :class="currentStep >= 2 ? 'step-primary' : ''">
                         选择技师
                     </li>
-                    <li
-                        class="step"
-                        :class="currentStep >= 3 ? 'step-primary' : ''"
-                    >
+                    <li class="step" :class="currentStep >= 3 ? 'step-primary' : ''">
                         确认预约
                     </li>
                 </ul>
@@ -313,22 +287,12 @@ watch(
                 <div v-if="currentStep === 1" class="space-y-5">
                     <div class="form-control">
                         <label class="label">
-                            <span class="label-text font-medium"
-                                >选择会员
-                                <span class="text-error">*</span></span
-                            >
+                            <span class="label-text font-medium">选择会员
+                                <span class="text-error">*</span></span>
                         </label>
-                        <select
-                            v-model="formData.member_id"
-                            class="select select-bordered w-full"
-                            required
-                        >
+                        <select v-model="formData.member_id" class="select select-bordered w-full" required>
                             <option disabled value="">请选择会员</option>
-                            <option
-                                v-for="m in members"
-                                :key="m.id"
-                                :value="m.id"
-                            >
+                            <option v-for="m in members" :key="m.id" :value="m.id">
                                 {{ m.name }} ({{ m.phone }})
                             </option>
                         </select>
@@ -336,22 +300,12 @@ watch(
 
                     <div class="form-control">
                         <label class="label">
-                            <span class="label-text font-medium"
-                                >选择服务项目
-                                <span class="text-error">*</span></span
-                            >
+                            <span class="label-text font-medium">选择服务项目
+                                <span class="text-error">*</span></span>
                         </label>
-                        <select
-                            v-model="formData.service_id"
-                            class="select select-bordered w-full"
-                            required
-                        >
+                        <select v-model="formData.service_id" class="select select-bordered w-full" required>
                             <option disabled value="">请选择服务项目</option>
-                            <option
-                                v-for="s in services"
-                                :key="s.id"
-                                :value="s.id"
-                            >
+                            <option v-for="s in services" :key="s.id" :value="s.id">
                                 {{ s.name }} - ¥{{ s.price }} ({{
                                     s.duration
                                 }}分钟)
@@ -361,152 +315,86 @@ watch(
 
                     <div class="form-control">
                         <label class="label">
-                            <span class="label-text font-medium"
-                                >选择开始时间
-                                <span class="text-error">*</span></span
-                            >
+                            <span class="label-text font-medium">选择开始时间
+                                <span class="text-error">*</span></span>
                         </label>
-                        <input
-                            type="datetime-local"
-                            v-model="formData.start_time"
-                            class="input input-bordered w-full"
-                            required
-                        />
+                        <input type="datetime-local" v-model="formData.start_time" class="input input-bordered w-full"
+                            required />
                         <label class="label">
-                            <span class="label-text-alt text-base-content/60"
-                                >预计结束时间:
+                            <span class="label-text-alt text-base-content/60">预计结束时间:
                                 {{
                                     selectedService
                                         ? formatTime(endTime)
                                         : "请先选择服务项目"
-                                }}</span
-                            >
+                                }}</span>
                         </label>
                     </div>
 
                     <div class="alert alert-info">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            class="stroke-current shrink-0 w-6 h-6"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            ></path>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            class="stroke-current shrink-0 w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <span class="text-sm"
-                            >下一步将根据您选择的时间段，为您推荐可用的技师</span
-                        >
+                        <span class="text-sm">下一步将根据您选择的时间段，为您推荐可用的技师</span>
                     </div>
                 </div>
 
                 <!-- Step 2: Technician Selection -->
                 <div v-if="currentStep === 2" class="space-y-5">
-                    <div
-                        v-if="formData.allow_waitlist"
-                        class="alert alert-warning"
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="stroke-current shrink-0 h-6 w-6"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                            />
+                    <div v-if="formData.allow_waitlist" class="alert alert-warning">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
-                        <span
-                            >该时间段所有技师都不可用，您选择的预约将加入候补队列</span
-                        >
+                        <span>该时间段所有技师都不可用，您选择的预约将加入候补队列</span>
                     </div>
 
                     <div class="form-control">
                         <label class="label">
-                            <span class="label-text font-medium"
-                                >选择技师
-                                <span class="text-error">*</span></span
-                            >
+                            <span class="label-text font-medium">选择技师
+                                <span class="text-error">*</span></span>
                         </label>
                     </div>
 
                     <!-- Available Technicians -->
                     <div v-if="availableTechs.length > 0">
-                        <div
-                            class="text-sm font-medium text-success mb-3 flex items-center gap-2"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke-width="1.5"
-                                stroke="currentColor"
-                                class="w-5 h-5"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
+                        <div class="text-sm font-medium text-success mb-3 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             可用技师 ({{ availableTechs.length }})
                         </div>
                         <div class="grid grid-cols-2 gap-3">
-                            <label
-                                v-for="tech in availableTechs"
-                                :key="tech.id"
-                                class="cursor-pointer"
-                            >
-                                <input
-                                    type="radio"
-                                    name="tech"
-                                    :value="tech.id"
-                                    v-model="formData.tech_id"
-                                    class="peer sr-only"
-                                />
+                            <label v-for="tech in availableTechs" :key="tech.id" class="cursor-pointer">
+                                <input type="radio" name="tech" :value="tech.id" v-model="formData.tech_id"
+                                    class="peer sr-only" />
                                 <div
-                                    class="card bg-base-100 border-2 border-base-300 hover:border-primary peer-checked:border-primary peer-checked:bg-primary/5 transition-all"
-                                >
+                                    class="card bg-base-100 border-2 border-base-300 hover:border-primary peer-checked:border-primary peer-checked:bg-primary/5 transition-all">
                                     <div class="card-body p-4">
                                         <div class="flex items-center gap-3">
                                             <div
-                                                class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center text-lg font-bold text-success"
-                                            >
+                                                class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center text-lg font-bold text-success">
                                                 {{ tech.name.charAt(0) }}
                                             </div>
                                             <div class="flex-1">
-                                                <div
-                                                    class="font-semibold text-base-content"
-                                                >
+                                                <div class="font-semibold text-base-content">
                                                     {{ tech.name }}
                                                 </div>
-                                                <div
-                                                    class="text-xs text-success font-medium"
-                                                >
+                                                <div class="text-xs text-success font-medium">
                                                     空闲可用
                                                 </div>
                                             </div>
-                                            <svg
-                                                v-if="
-                                                    formData.tech_id === tech.id
-                                                "
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                                class="w-6 h-6 text-primary"
-                                            >
-                                                <path
-                                                    fill-rule="evenodd"
+                                            <svg v-if="
+                                                formData.tech_id === tech.id
+                                            " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                                                fill="currentColor" class="w-6 h-6 text-primary">
+                                                <path fill-rule="evenodd"
                                                     d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-                                                    clip-rule="evenodd"
-                                                />
+                                                    clip-rule="evenodd" />
                                             </svg>
                                         </div>
                                     </div>
@@ -516,81 +404,45 @@ watch(
                     </div>
 
                     <!-- Unavailable Technicians -->
-                    <div
-                        v-if="
-                            unavailableTechs.length > 0 &&
-                            formData.allow_waitlist
-                        "
-                        class="mt-6"
-                    >
-                        <div
-                            class="text-sm font-medium text-base-content/60 mb-3 flex items-center gap-2"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke-width="1.5"
-                                stroke="currentColor"
-                                class="w-5 h-5"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                                />
+                    <div v-if="
+                        unavailableTechs.length > 0 &&
+                        formData.allow_waitlist
+                    " class="mt-6">
+                        <div class="text-sm font-medium text-base-content/60 mb-3 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                             </svg>
                             不可用技师 ({{ unavailableTechs.length }})
                         </div>
                         <div class="grid grid-cols-2 gap-3">
-                            <label
-                                v-for="tech in unavailableTechs"
-                                :key="tech.id"
-                                class="cursor-pointer"
-                            >
-                                <input
-                                    type="radio"
-                                    name="tech"
-                                    :value="tech.id"
-                                    v-model="formData.tech_id"
-                                    class="peer sr-only"
-                                />
+                            <label v-for="tech in unavailableTechs" :key="tech.id" class="cursor-pointer">
+                                <input type="radio" name="tech" :value="tech.id" v-model="formData.tech_id"
+                                    class="peer sr-only" />
                                 <div
-                                    class="card bg-base-100 border-2 border-base-300 hover:border-primary peer-checked:border-primary peer-checked:bg-primary/5 transition-all opacity-60"
-                                >
+                                    class="card bg-base-100 border-2 border-base-300 hover:border-primary peer-checked:border-primary peer-checked:bg-primary/5 transition-all opacity-60">
                                     <div class="card-body p-4">
                                         <div class="flex items-center gap-3">
                                             <div
-                                                class="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center text-lg font-bold text-error"
-                                            >
+                                                class="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center text-lg font-bold text-error">
                                                 {{ tech.name.charAt(0) }}
                                             </div>
                                             <div class="flex-1">
-                                                <div
-                                                    class="font-semibold text-base-content"
-                                                >
+                                                <div class="font-semibold text-base-content">
                                                     {{ tech.name }}
                                                 </div>
-                                                <div
-                                                    class="text-xs text-error font-medium"
-                                                >
+                                                <div class="text-xs text-error font-medium">
                                                     忙碌/休息
                                                 </div>
                                             </div>
-                                            <svg
-                                                v-if="
-                                                    formData.tech_id === tech.id
-                                                "
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                                class="w-6 h-6 text-primary"
-                                            >
-                                                <path
-                                                    fill-rule="evenodd"
+                                            <svg v-if="
+                                                formData.tech_id === tech.id
+                                            " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                                                fill="currentColor" class="w-6 h-6 text-primary">
+                                                <path fill-rule="evenodd"
                                                     d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-                                                    clip-rule="evenodd"
-                                                />
+                                                    clip-rule="evenodd" />
                                             </svg>
                                         </div>
                                     </div>
@@ -599,26 +451,14 @@ watch(
                         </div>
                     </div>
 
-                    <div
-                        v-if="
-                            availableTechs.length === 0 &&
-                            unavailableTechs.length === 0
-                        "
-                        class="text-center py-8 text-base-content/60"
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.5"
-                            stroke="currentColor"
-                            class="w-12 h-12 mx-auto mb-2 opacity-30"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                            />
+                    <div v-if="
+                        availableTechs.length === 0 &&
+                        unavailableTechs.length === 0
+                    " class="text-center py-8 text-base-content/60">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="w-12 h-12 mx-auto mb-2 opacity-30">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                         </svg>
                         <p>没有可用的技师</p>
                     </div>
@@ -627,18 +467,10 @@ watch(
                 <!-- Step 3: Confirmation -->
                 <div v-if="currentStep === 3" class="space-y-5">
                     <div class="alert alert-info">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            class="stroke-current shrink-0 w-6 h-6"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            ></path>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            class="stroke-current shrink-0 w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         <span>请确认以下预约信息</span>
                     </div>
@@ -679,18 +511,10 @@ watch(
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">价格</span>
-                            <span class="font-bold text-lg text-primary"
-                                >¥{{ selectedService?.price }}</span
-                            >
+                            <span class="font-bold text-lg text-primary">¥{{ selectedService?.price }}</span>
                         </div>
-                        <div
-                            v-if="formData.allow_waitlist"
-                            class="divider my-0"
-                        ></div>
-                        <div
-                            v-if="formData.allow_waitlist"
-                            class="flex justify-between items-center"
-                        >
+                        <div v-if="formData.allow_waitlist" class="divider my-0"></div>
+                        <div v-if="formData.allow_waitlist" class="flex justify-between items-center">
                             <span class="text-base-content/60">状态</span>
                             <span class="badge badge-warning">候补中</span>
                         </div>
@@ -699,102 +523,42 @@ watch(
             </div>
 
             <!-- Modal Actions -->
-            <div
-                class="px-6 py-4 border-t border-base-200 flex justify-between gap-3"
-            >
-                <button
-                    v-if="currentStep > 1"
-                    @click="goBack"
-                    class="btn btn-ghost"
-                    :disabled="submitting"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke-width="1.5"
-                        stroke="currentColor"
-                        class="w-4 h-4 mr-1"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M15.75 19.5L8.25 12l7.5-7.5"
-                        />
+            <div class="px-6 py-4 border-t border-base-200 flex justify-between gap-3">
+                <button v-if="currentStep > 1" @click="goBack" class="btn btn-ghost" :disabled="submitting">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="w-4 h-4 mr-1">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                     </svg>
                     上一步
                 </button>
                 <div class="flex-1"></div>
-                <button
-                    @click="closeModal"
-                    class="btn btn-ghost"
-                    :disabled="submitting"
-                >
+                <button @click="closeModal" class="btn btn-ghost" :disabled="submitting">
                     取消
                 </button>
-                <button
-                    v-if="currentStep === 1"
-                    @click="goToStep2"
-                    class="btn btn-primary"
-                    :disabled="!canProceedStep1 || loading"
-                >
+                <button v-if="currentStep === 1" @click="goToStep2" class="btn btn-primary"
+                    :disabled="!canProceedStep1 || loading">
                     <span v-if="loading" class="loading loading-spinner"></span>
                     下一步
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke-width="1.5"
-                        stroke="currentColor"
-                        class="w-4 h-4 ml-1"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                        />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="w-4 h-4 ml-1">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                     </svg>
                 </button>
-                <button
-                    v-if="currentStep === 2"
-                    @click="goToStep3"
-                    class="btn btn-primary"
-                    :disabled="!canProceedStep2"
-                >
+                <button v-if="currentStep === 2" @click="goToStep3" class="btn btn-primary"
+                    :disabled="!canProceedStep2">
                     下一步
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke-width="1.5"
-                        stroke="currentColor"
-                        class="w-4 h-4 ml-1"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                        />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="w-4 h-4 ml-1">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                     </svg>
                 </button>
-                <button
-                    v-if="currentStep === 3"
-                    @click="handleSubmit"
-                    class="btn btn-primary"
-                    :disabled="submitting"
-                >
-                    <span
-                        v-if="submitting"
-                        class="loading loading-spinner"
-                    ></span>
+                <button v-if="currentStep === 3" @click="handleSubmit" class="btn btn-primary" :disabled="submitting">
+                    <span v-if="submitting" class="loading loading-spinner"></span>
                     {{ submitting ? "提交中..." : "确认预约" }}
                 </button>
             </div>
         </div>
-        <form
-            method="dialog"
-            class="modal-backdrop bg-base-content/20 backdrop-blur-sm"
-        >
+        <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
             <button @click="closeModal">close</button>
         </form>
     </dialog>

@@ -1,34 +1,16 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import VChart from "vue-echarts";
-import { use } from "echarts/core";
-import { CanvasRenderer } from "echarts/renderers";
-import { LineChart } from "echarts/charts";
-import {
-    TitleComponent,
-    TooltipComponent,
-    LegendComponent,
-    GridComponent,
-} from "echarts/components";
-import {
-    getDashboardStats,
-    getFissionRanking,
-    getRevenueTrend,
-    getServiceRanking,
-    getProductSales,
-} from "../api/dashboard";
+
 import Avatar from "../components/Avatar.vue";
 import MemberLevel from "../components/MemberLevel.vue";
 
-// 注册 ECharts 组件
-use([
-    CanvasRenderer,
-    LineChart,
-    TitleComponent,
-    TooltipComponent,
-    LegendComponent,
-    GridComponent,
-]);
+import {
+    getDashboardStats,
+    getFissionRanking,
+    getServiceRanking,
+    getProductSales,
+} from "../api/dashboard";
+import RevenueTrend from "../components/RevenueTrend.vue";
 
 const stats = ref({
     dailyRevenue: 0,
@@ -39,7 +21,6 @@ const stats = ref({
 });
 
 const fissionRanking = ref([]);
-const revenueTrend = ref([]);
 const serviceRanking = ref([]);
 const productSales = ref({
     topProducts: [],
@@ -48,7 +29,6 @@ const productSales = ref({
     lowStockCount: 0,
 });
 const loading = ref(true);
-const trendLoading = ref(false);
 const trendPeriod = ref(30); // 默认30天
 
 // 时间段选项
@@ -61,16 +41,13 @@ const periodOptions = [
 const fetchData = async () => {
     loading.value = true;
     try {
-        const [statsRes, rankingRes, trendRes, serviceRes, productRes] =
+        const [statsRes, rankingRes, serviceRes, productRes] =
             await Promise.all([
                 getDashboardStats().catch((err) =>
                     console.warn("Stats API failed", err),
                 ),
                 getFissionRanking().catch((err) =>
                     console.warn("Ranking API failed", err),
-                ),
-                getRevenueTrend({ days: trendPeriod.value }).catch((err) =>
-                    console.warn("Trend API failed", err),
                 ),
                 getServiceRanking().catch((err) =>
                     console.warn("Service API failed", err),
@@ -88,10 +65,6 @@ const fetchData = async () => {
             fissionRanking.value = rankingRes;
         }
 
-        if (trendRes) {
-            revenueTrend.value = trendRes;
-        }
-
         if (serviceRes) {
             serviceRanking.value = serviceRes;
         }
@@ -106,188 +79,11 @@ const fetchData = async () => {
     }
 };
 
-const changeTrendPeriod = async (days) => {
+const changeTrendPeriod = (days) => {
     trendPeriod.value = days;
-    trendLoading.value = true;
-    try {
-        const trendRes = await getRevenueTrend({ days });
-        if (trendRes) {
-            revenueTrend.value = trendRes;
-        }
-    } catch (error) {
-        console.error("Failed to load revenue trend:", error);
-    } finally {
-        trendLoading.value = false;
-    }
 };
 
 onMounted(fetchData);
-
-// ECharts 配置选项
-const chartOption = computed(() => {
-    if (revenueTrend.value.length === 0) {
-        return {
-            title: {
-                text: "暂无数据",
-                left: "center",
-                top: "center",
-            },
-        };
-    }
-
-    const dates = revenueTrend.value.map((item) => item.date.substring(5));
-    const serviceData = revenueTrend.value.map(
-        (item) => item.service_revenue || 0,
-    );
-    const productData = revenueTrend.value.map(
-        (item) => item.product_revenue || 0,
-    );
-
-    return {
-        tooltip: {
-            trigger: "axis",
-            backgroundColor: "rgba(31, 41, 55, 0.95)",
-            borderColor: "transparent",
-            textStyle: {
-                color: "#fff",
-            },
-            formatter: (params) => {
-                let result = `<div style="font-weight: 600; margin-bottom: 6px;">${params[0].axisValue}</div>`;
-                params.forEach((param) => {
-                    const color = param.color;
-                    result += `<div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-                        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${color};"></span>
-                        <span>${param.seriesName}: ¥${param.value.toFixed(2)}</span>
-                    </div>`;
-                });
-                return result;
-            },
-        },
-        legend: {
-            data: ["服务营收", "商品营收"],
-            top: 0,
-            right: 0,
-        },
-        grid: {
-            left: "3%",
-            right: "4%",
-            bottom: "3%",
-            top: "15%",
-            containLabel: true,
-        },
-        xAxis: {
-            type: "category",
-            boundaryGap: false,
-            data: dates,
-            axisLabel: {
-                color: "#9ca3af",
-                fontSize: 11,
-            },
-        },
-        yAxis: {
-            type: "value",
-            axisLine: {
-                show: false,
-            },
-            axisTick: {
-                show: false,
-            },
-            axisLabel: {
-                color: "#9ca3af",
-                fontSize: 11,
-                formatter: (value) => {
-                    if (value >= 1000) {
-                        return (value / 1000).toFixed(1) + "k";
-                    }
-                    return value;
-                },
-            },
-            splitLine: {
-                lineStyle: {
-                    color: "#f3f4f6",
-                },
-            },
-        },
-        series: [
-            {
-                name: "服务营收",
-                type: "line",
-                smooth: true,
-                lineStyle: {
-                    width: 3,
-                    color: {
-                        type: "linear",
-                        x: 0,
-                        y: 0,
-                        x2: 1,
-                        y2: 0,
-                        colorStops: [
-                            { offset: 0, color: "#3b82f6" },
-                            { offset: 1, color: "#60a5fa" },
-                        ],
-                    },
-                },
-                itemStyle: {
-                    color: "#3b82f6",
-                    borderWidth: 2,
-                    borderColor: "#fff",
-                },
-                areaStyle: {
-                    color: {
-                        type: "linear",
-                        x: 0,
-                        y: 0,
-                        x2: 0,
-                        y2: 1,
-                        colorStops: [
-                            { offset: 0, color: "rgba(59, 130, 246, 0.2)" },
-                            { offset: 1, color: "rgba(59, 130, 246, 0.02)" },
-                        ],
-                    },
-                },
-                data: serviceData,
-            },
-            {
-                name: "商品营收",
-                type: "line",
-                smooth: true,
-                lineStyle: {
-                    width: 3,
-                    color: {
-                        type: "linear",
-                        x: 0,
-                        y: 0,
-                        x2: 1,
-                        y2: 0,
-                        colorStops: [
-                            { offset: 0, color: "#8b5cf6" },
-                            { offset: 1, color: "#a78bfa" },
-                        ],
-                    },
-                },
-                itemStyle: {
-                    color: "#8b5cf6",
-                    borderWidth: 2,
-                    borderColor: "#fff",
-                },
-                areaStyle: {
-                    color: {
-                        type: "linear",
-                        x: 0,
-                        y: 0,
-                        x2: 0,
-                        y2: 1,
-                        colorStops: [
-                            { offset: 0, color: "rgba(139, 92, 246, 0.2)" },
-                            { offset: 1, color: "rgba(139, 92, 246, 0.02)" },
-                        ],
-                    },
-                },
-                data: productData,
-            },
-        ],
-    };
-});
 
 // 计算服务排行的最大值，用于进度条宽度
 const getBarWidth = (count) => {
@@ -443,11 +239,8 @@ const formatDateLabel = computed(() => {
                         </button>
                     </div>
                 </div>
-                <div v-if="loading || trendLoading" class="h-80 flex items-center justify-center">
-                    <span class="loading loading-spinner loading-lg"></span>
-                </div>
-                <div v-else class="h-80">
-                    <v-chart :option="chartOption" autoresize />
+                <div class="h-80">
+                    <RevenueTrend :days="trendPeriod" />
                 </div>
             </div>
         </div>
@@ -475,7 +268,7 @@ const formatDateLabel = computed(() => {
                                     {{ service.service_name }}</span>
                                 <span class="text-base-content/60">{{ service.order_count }}单 / ¥{{
                                     formatNumber(service.total_revenue)
-                                }}</span>
+                                    }}</span>
                             </div>
                             <div class="w-full bg-base-200 rounded-full h-2">
                                 <div class="bg-primary h-2 rounded-full transition-all" :style="{
@@ -539,7 +332,7 @@ const formatDateLabel = computed(() => {
                                         {{ product.product_name }}</span>
                                     <span class="text-base-content/60">{{ product.sales_count }}件 / ¥{{
                                         formatNumber(product.total_revenue)
-                                    }}</span>
+                                        }}</span>
                                 </div>
                                 <div class="w-full bg-base-200 rounded-full h-2">
                                     <div class="bg-secondary h-2 rounded-full transition-all" :style="{

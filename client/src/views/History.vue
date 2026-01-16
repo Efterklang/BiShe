@@ -4,6 +4,7 @@ import { getAppointments } from '../api/appointments';
 import { getTechnicians } from '../api/technicians';
 import { getServices } from '../api/services';
 import { getMembers } from '../api/members';
+import Avatar from '../components/Avatar.vue';
 
 const appointments = ref([]);
 const technicians = ref([]);
@@ -60,14 +61,6 @@ const getMemberName = (id) => members.value.find(m => m.id === id)?.name || `会
     <div class="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
       <div>
         <h1 class="text-3xl font-bold tracking-tight text-base-content">历史订单</h1>
-        <p class="mt-2 text-base-content/60">
-          查看已完成的服务订单记录与详细信息。
-        </p>
-      </div>
-      <div class="flex gap-2">
-          <button class="btn btn-sm btn-outline">
-            导出报表
-          </button>
       </div>
     </div>
 
@@ -83,7 +76,6 @@ const getMemberName = (id) => members.value.find(m => m.id === id)?.name || `会
               <th class="px-6 py-3 font-medium">技师</th>
               <th class="px-6 py-3 font-medium">完成时间</th>
               <th class="px-6 py-3 font-medium">实收金额</th>
-              <th class="px-6 py-3 font-medium text-right">操作</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-base-200">
@@ -101,23 +93,18 @@ const getMemberName = (id) => members.value.find(m => m.id === id)?.name || `会
                 {{ getMemberName(appt.member_id || appt.MemberID) }}
               </td>
               <td class="px-6 py-4 text-base-content/80">
-                  {{ getServiceName(appt.service_id || appt.ServiceID) }}
+                {{ getServiceName(appt.service_id || appt.ServiceID) }}
               </td>
               <td class="px-6 py-4">
                 <div class="flex items-center gap-2">
-                  <div class="w-6 h-6 rounded-full bg-base-300 flex items-center justify-center text-xs font-bold text-base-content/60">
-                     {{ getTechName(appt.tech_id || appt.TechID).charAt(0) }}
-                  </div>
-                  <span class="text-base-content/80">{{ getTechName(appt.tech_id || appt.TechID) }}</span>
+                  <Avatar :name="getTechName(appt.tech_id)" :size="15" />
+                  <span class="text-base-content/80">{{ getTechName(appt.tech_id) }}</span>
                 </div>
               </td>
               <td class="px-6 py-4 text-base-content/60 text-xs">
                 {{ formatDate(appt.end_time || appt.EndTime) }}
               </td>
               <td class="px-6 py-4 font-medium text-success">¥{{ appt.actual_price || appt.ActualPrice }}</td>
-              <td class="px-6 py-4 text-right">
-                <button class="btn btn-ghost btn-xs">查看详情</button>
-              </td>
             </tr>
           </tbody>
         </table>

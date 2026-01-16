@@ -127,7 +127,7 @@ func GetAvailableTechnicians(c *gin.Context) {
 	}
 
 	// 获取服务项目信息，计算结束时间
-	var service models.ServiceItem
+	var service models.ServiceProduct
 	if err := db.DB.First(&service, serviceIDStr).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": 404, "msg": "Service not found"})
 		return

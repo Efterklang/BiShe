@@ -5,18 +5,12 @@
 				<span class="text-xl">{{ userInitial }}</span>
 			</div>
 		</div>
-		<ul
-			tabindex="0"
-			class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-56"
-		>
+		<ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-1 p-2 shadow bg-base-100 rounded-box w-56">
 			<!-- User Info -->
 			<li class="menu-title">
 				<div class="flex flex-col gap-1">
 					<span class="font-semibold">{{ username }}</span>
-					<span
-						class="badge badge-sm"
-						:class="isManager ? 'badge-primary' : 'badge-secondary'"
-					>
+					<span class="badge badge-sm" :class="isManager ? 'badge-primary' : 'badge-secondary'">
 						{{ roleText }}
 					</span>
 				</div>
@@ -27,19 +21,10 @@
 			<!-- User Management (Manager Only) -->
 			<li v-if="isManager">
 				<router-link to="/users">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-						/>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+						stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+							d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
 					</svg>
 					用户管理
 				</router-link>
@@ -48,19 +33,10 @@
 			<!-- Logout -->
 			<li>
 				<a @click="handleLogout" class="text-error">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-						/>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+						stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+							d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
 					</svg>
 					退出登录
 				</a>

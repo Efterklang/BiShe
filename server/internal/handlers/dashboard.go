@@ -204,10 +204,10 @@ func (h *DashboardHandler) GetServiceRanking(c *gin.Context) {
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
 
 	if err := h.db.Model(&models.Appointment{}).
-		Select("service_items.id as service_id, service_items.name as service_name, COUNT(appointments.id) as order_count, COALESCE(SUM(appointments.actual_price), 0) as total_revenue").
-		Joins("JOIN service_items ON service_items.id = appointments.service_id").
+		Select("service_products.id as service_id, service_products.name as service_name, COUNT(appointments.id) as order_count, COALESCE(SUM(appointments.actual_price), 0) as total_revenue").
+		Joins("JOIN service_products ON service_products.id = appointments.service_id").
 		Where("appointments.status = ? AND appointments.created_at >= ?", "completed", thirtyDaysAgo).
-		Group("service_items.id, service_items.name").
+		Group("service_products.id, service_products.name").
 		Order("order_count DESC").
 		Limit(10).
 		Scan(&rankings).Error; err != nil {
@@ -368,10 +368,10 @@ func (h *DashboardHandler) GetProductSalesOverview(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response.Success(gin.H{
-		"topProducts":    topProducts,
-		"totalRevenue":   totalRevenue,
-		"totalSales":     totalSales,
-		"lowStockCount":  lowStockCount,
-		"periodDays":     days,
+		"topProducts":   topProducts,
+		"totalRevenue":  totalRevenue,
+		"totalSales":    totalSales,
+		"lowStockCount": lowStockCount,
+		"periodDays":    days,
 	}, ""))
 }

@@ -6,9 +6,11 @@ import {
     updateTechnician,
     deleteTechnician,
 } from "../api/technicians";
+import { getAppointments } from "../api/appointments";
 import TechnicianSchedule from "../components/TechnicianSchedule.vue";
 import Avatar from "../components/Avatar.vue";
 import { usePermission } from "../composables/usePermission";
+import "cally";
 
 const { canManageTechnicians } = usePermission();
 
@@ -18,7 +20,14 @@ const loading = ref(true);
 const showModal = ref(false);
 const submitting = ref(false);
 const editingId = ref(null);
-const selectedTechnician = ref(null);
+
+// Appointment Modal
+const showAppointmentModal = ref(false);
+const appointmentModalLoading = ref(false);
+const selectedAppointmentTech = ref(null);
+const selectedAppointmentDate = ref(new Date().toISOString().split('T')[0]);
+const calendarOpen = ref(false);
+const technicianAppointments = ref([]);
 
 const formData = ref({
     name: "",
@@ -58,8 +67,52 @@ const handleEdit = (tech) => {
 };
 
 const handleSchedule = (tech) => {
-    selectedTechnician.value = tech;
-    activeTab.value = "schedule";
+    selectedAppointmentTech.value = tech;
+    selectedAppointmentDate.value = new Date().toISOString().split('T')[0];
+    showAppointmentModal.value = true;
+    fetchTechnicianAppointments();
+};
+
+const fetchTechnicianAppointments = async () => {
+    if (!selectedAppointmentTech.value || !selectedAppointmentDate.value) return;
+
+    appointmentModalLoading.value = true;
+    try {
+        const allAppts = await getAppointments();
+        technicianAppointments.value = (allAppts || []).filter((app) =>
+            app.tech_id === selectedAppointmentTech.value.id &&
+            app.start_time.startsWith(selectedAppointmentDate.value),
+        );
+    } catch (error) {
+        console.error("Failed to fetch appointments:", error);
+        technicianAppointments.value = [];
+    } finally {
+        appointmentModalLoading.value = false;
+    }
+};
+
+const handleDateChange = (event) => {
+    const newDate = event.target?.value || event.detail?.value || event.detail;
+    if (newDate) {
+        selectedAppointmentDate.value = newDate;
+        calendarOpen.value = false; // Close calendar after selection
+        fetchTechnicianAppointments();
+    }
+};
+
+const handleDateSelect = (event) => {
+    handleDateChange(event);
+};
+
+const formatDisplayDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'short'
+    });
 };
 
 const handleDelete = async (tech) => {
@@ -241,16 +294,15 @@ const parseSkills = (skills) => {
 
                     <!-- Actions -->
                     <div class="mt-6 pt-4 border-t border-base-200 flex gap-2">
-                        <button @click="handleSchedule(tech)" class="btn btn-sm btn-outline flex-1">
-                            排班
+                        <button @click="handleSchedule(tech)" class="btn btn-outline">
+                            查看预约
+                        </button>
+                        <button v-if="canManageTechnicians" @click="handleEdit(tech)" class="btn btn-outline">
+                            编辑
                         </button>
                         <button v-if="canManageTechnicians" @click="handleDelete(tech)"
-                            class="btn btn-sm btn-error btn-outline flex-1">
+                            class="btn btn-error btn-outline">
                             删除
-                        </button>
-                        <button v-if="canManageTechnicians" @click="handleEdit(tech)"
-                            class="btn btn-sm btn-outline flex-1">
-                            编辑
                         </button>
                     </div>
                 </div>
@@ -322,6 +374,146 @@ const parseSkills = (skills) => {
             </div>
             <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
                 <button @click="showModal = false">close</button>
+            </form>
+        </dialog>
+
+        <!-- Appointment Modal -->
+        <dialog class="modal" :class="{ 'modal-open': showAppointmentModal }">
+            <div
+                class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-2xl">
+                <!-- Modal Header -->
+                <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
+                    <div>
+                        <h3 class="font-semibold text-lg text-base-content">
+                            {{ selectedAppointmentTech?.name }} 的预约安排
+                        </h3>
+                        <p class="text-sm text-base-content/60 mt-1">
+                            查看指定日期的预约情况
+                        </p>
+                    </div>
+                    <button @click="showAppointmentModal = false"
+                        class="btn btn-ghost btn-sm btn-square text-base-content/60">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                            stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6">
+                    <!-- Date Picker -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-base-content/80 mb-2">选择日期</label>
+                        <div class="relative">
+                            <input type="text" :value="formatDisplayDate(selectedAppointmentDate)" readonly
+                                class="input input-bordered w-full bg-base-100 cursor-pointer" placeholder="点击选择日期"
+                                @click="calendarOpen = !calendarOpen" />
+                            <calendar-date v-if="calendarOpen"
+                                class="cally absolute top-full mt-2 z-10 bg-base-100 border border-base-300 shadow-lg rounded-box"
+                                :value="selectedAppointmentDate" @select="handleDateSelect" @change="handleDateChange"
+                                locale="zh-CN">
+                                <svg aria-label="Previous" class="fill-current size-4" slot="previous"
+                                    xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                    <path fill="currentColor" d="M15.75 19.5 8.25 12l7.5-7.5"></path>
+                                </svg>
+                                <svg aria-label="Next" class="fill-current size-4" slot="next"
+                                    xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                    <path fill="currentColor" d="m8.25 4.5 7.5 7.5-7.5 7.5"></path>
+                                </svg>
+                                <calendar-month></calendar-month>
+                            </calendar-date>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div v-if="appointmentModalLoading" class="flex justify-center py-12">
+                        <span class="loading loading-spinner loading-lg"></span>
+                    </div>
+
+                    <!-- Appointments List -->
+                    <div v-else>
+                        <div v-if="technicianAppointments.length === 0" class="text-center py-12 text-base-content/60">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor" class="w-16 h-16 mx-auto mb-4 opacity-30">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                            </svg>
+                            <p class="text-lg font-medium">暂无预约</p>
+                            <p class="text-sm mt-1">{{ selectedAppointmentDate }} 当天没有预约</p>
+                        </div>
+
+                        <div v-else class="space-y-4">
+                            <h4 class="font-semibold flex items-center gap-2 mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                                </svg>
+                                预约列表 ({{ technicianAppointments.length }})
+                            </h4>
+
+                            <div class="space-y-3 max-h-96 overflow-y-auto">
+                                <div v-for="appt in technicianAppointments" :key="appt.id"
+                                    class="p-4 border border-base-200 rounded-lg hover:border-primary/50 transition-colors">
+                                    <div class="flex justify-between items-start mb-3">
+                                        <div>
+                                            <div class="font-semibold text-base">
+                                                {{ appt.member?.name || "未知客户" }}
+                                            </div>
+                                            <div class="text-sm text-base-content/60">
+                                                {{ appt.service_item?.name || "未知服务" }}
+                                            </div>
+                                        </div>
+                                        <span class="badge badge-sm" :class="{
+                                            'badge-warning': appt.status === 'pending',
+                                            'badge-success': appt.status === 'completed',
+                                            'badge-info': appt.status === 'waitlist' || appt.status === 'waiting',
+                                            'badge-error': appt.status === 'cancelled',
+                                        }">
+                                            {{
+                                                appt.status === "pending" ? "待服务" :
+                                                    appt.status === "completed" ? "已完成" :
+                                                        appt.status === "waitlist" || appt.status === "waiting" ? "候补中" :
+                                                            appt.status === "cancelled" ? "已取消" : appt.status
+                                            }}
+                                        </span>
+                                    </div>
+
+                                    <div class="flex items-center gap-4 text-sm text-base-content/70">
+                                        <div class="flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            {{ appt.start_time.substring(11, 16) }} - {{ appt.end_time.substring(11, 16)
+                                            }}
+                                        </div>
+                                        <div class="flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                    d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            ¥{{ appt.actual_price }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="modal-action px-6 py-4 border-t border-base-200 bg-base-200/30">
+                    <button @click="showAppointmentModal = false" class="btn btn-neutral">
+                        关闭
+                    </button>
+                </div>
+            </div>
+            <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
+                <button @click="showAppointmentModal = false">close</button>
             </form>
         </dialog>
     </div>

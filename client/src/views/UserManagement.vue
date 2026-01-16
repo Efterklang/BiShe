@@ -3,19 +3,9 @@
 		<div class="flex justify-between items-center mb-6">
 			<h1 class="text-3xl font-bold">用户管理</h1>
 			<button class="btn btn-primary" @click="openCreateModal">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5 mr-2"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M12 4v16m8-8H4"
-					/>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"
+					stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
 				</svg>
 				创建新用户
 			</button>
@@ -48,20 +38,13 @@
 								<td>{{ user.id }}</td>
 								<td class="font-medium">{{ user.username }}</td>
 								<td>
-									<div
-										class="badge"
-										:class="
-											user.role === 'manager' ? 'badge-primary' : 'badge-secondary'
-										"
-									>
+									<div class="badge" :class="user.role === 'manager' ? 'badge-primary' : 'badge-secondary'
+										">
 										{{ user.role === "manager" ? "店长" : "操作员" }}
 									</div>
 								</td>
 								<td>
-									<div
-										class="badge"
-										:class="user.is_active ? 'badge-success' : 'badge-error'"
-									>
+									<div class="badge" :class="user.is_active ? 'badge-success' : 'badge-error'">
 										{{ user.is_active ? "正常" : "已停用" }}
 									</div>
 								</td>
@@ -89,14 +72,8 @@
 						<label class="label">
 							<span class="label-text">用户名</span>
 						</label>
-						<input
-							v-model="newUser.username"
-							type="text"
-							placeholder="请输入用户名（3-64字符）"
-							class="input input-bordered"
-							:class="{ 'input-error': formErrors.username }"
-							required
-						/>
+						<input v-model="newUser.username" type="text" placeholder="请输入用户名（3-64字符）"
+							class="input input-bordered" :class="{ 'input-error': formErrors.username }" required />
 						<label v-if="formErrors.username" class="label">
 							<span class="label-text-alt text-error">{{
 								formErrors.username
@@ -109,14 +86,8 @@
 						<label class="label">
 							<span class="label-text">密码</span>
 						</label>
-						<input
-							v-model="newUser.password"
-							type="password"
-							placeholder="至少8位，包含大小写字母和数字"
-							class="input input-bordered"
-							:class="{ 'input-error': formErrors.password }"
-							required
-						/>
+						<input v-model="newUser.password" type="password" placeholder="至少8位，包含大小写字母和数字"
+							class="input input-bordered" :class="{ 'input-error': formErrors.password }" required />
 						<label v-if="formErrors.password" class="label">
 							<span class="label-text-alt text-error">{{
 								formErrors.password
@@ -129,14 +100,9 @@
 						<label class="label">
 							<span class="label-text">确认密码</span>
 						</label>
-						<input
-							v-model="newUser.confirmPassword"
-							type="password"
-							placeholder="请再次输入密码"
-							class="input input-bordered"
-							:class="{ 'input-error': formErrors.confirmPassword }"
-							required
-						/>
+						<input v-model="newUser.confirmPassword" type="password" placeholder="请再次输入密码"
+							class="input input-bordered" :class="{ 'input-error': formErrors.confirmPassword }"
+							required />
 						<label v-if="formErrors.confirmPassword" class="label">
 							<span class="label-text-alt text-error">{{
 								formErrors.confirmPassword
@@ -149,11 +115,7 @@
 						<label class="label">
 							<span class="label-text">角色</span>
 						</label>
-						<select
-							v-model="newUser.role"
-							class="select select-bordered"
-							required
-						>
+						<select v-model="newUser.role" class="select select-bordered" required>
 							<option value="operator">操作员</option>
 							<option value="manager">店长</option>
 						</select>
@@ -161,38 +123,21 @@
 
 					<!-- Error Alert -->
 					<div v-if="createError" class="alert alert-error mt-4">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="stroke-current shrink-0 h-6 w-6"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none"
+							viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
 						</svg>
 						<span>{{ createError }}</span>
 					</div>
 
 					<!-- Modal Actions -->
 					<div class="modal-action">
-						<button
-							type="button"
-							class="btn btn-ghost"
-							@click="closeCreateModal"
-							:disabled="isCreating"
-						>
+						<button type="button" class="btn btn-ghost" @click="closeCreateModal" :disabled="isCreating">
 							取消
 						</button>
-						<button
-							type="submit"
-							class="btn btn-primary"
-							:class="{ loading: isCreating }"
-							:disabled="isCreating"
-						>
+						<button type="submit" class="btn btn-primary" :class="{ loading: isCreating }"
+							:disabled="isCreating">
 							<span v-if="!isCreating">创建</span>
 							<span v-else>创建中...</span>
 						</button>

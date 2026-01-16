@@ -45,29 +45,30 @@ type Technician struct {
 	AverageRating float32        `gorm:"type:decimal(3,2);default:0" json:"average_rating"`
 }
 
-// ServiceItem describes a spa service with price and duration.
-type ServiceItem struct {
+// ServiceProduct describes a spa service with price and duration.
+type ServiceProduct struct {
 	BaseModel
 	Name     string  `gorm:"size:64;not null" json:"name"`
 	Duration int     `gorm:"not null" json:"duration"` // minutes
 	Price    float64 `gorm:"type:decimal(10,2);not null" json:"price"`
 	IsActive bool    `gorm:"default:true" json:"is_active"`
+	ImageURL string  `gorm:"size:255" json:"image_url"` // 服务图片
 }
 
 // Appointment captures booking details and pricing.
 type Appointment struct {
 	BaseModel
-	MemberID    uint        `gorm:"index;not null" json:"member_id"`
-	Member      Member      `gorm:"foreignKey:MemberID" json:"member"`
-	TechID      uint        `gorm:"index;not null" json:"tech_id"`
-	Technician  Technician  `gorm:"foreignKey:TechID" json:"technician"`
-	ServiceID   uint        `gorm:"index;not null" json:"service_id"`
-	ServiceItem ServiceItem `gorm:"foreignKey:ServiceID" json:"service_item"`
-	StartTime   time.Time   `gorm:"index;not null" json:"start_time"`
-	EndTime     time.Time   `gorm:"index;not null" json:"end_time"`
-	Status      string      `gorm:"size:24;default:'pending'" json:"status"` // pending/completed/waitlist/cancelled
-	OriginPrice float64     `gorm:"type:decimal(10,2);not null" json:"origin_price"`
-	ActualPrice float64     `gorm:"type:decimal(10,2);not null" json:"actual_price"`
+	MemberID       uint           `gorm:"index;not null" json:"member_id"`
+	Member         Member         `gorm:"foreignKey:MemberID" json:"member"`
+	TechID         uint           `gorm:"index;not null" json:"tech_id"`
+	Technician     Technician     `gorm:"foreignKey:TechID" json:"technician"`
+	ServiceID      uint           `gorm:"index;not null" json:"service_id"`
+	ServiceProduct ServiceProduct `gorm:"foreignKey:ServiceID" json:"service_item"`
+	StartTime      time.Time      `gorm:"index;not null" json:"start_time"`
+	EndTime        time.Time      `gorm:"index;not null" json:"end_time"`
+	Status         string         `gorm:"size:24;default:'pending'" json:"status"` // pending/completed/waitlist/cancelled
+	OriginPrice    float64        `gorm:"type:decimal(10,2);not null" json:"origin_price"`
+	ActualPrice    float64        `gorm:"type:decimal(10,2);not null" json:"actual_price"`
 }
 
 // Schedule represents a technician's daily availability and booked slots.
