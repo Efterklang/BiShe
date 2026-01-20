@@ -23,6 +23,7 @@ const services = ref([]);
 const members = ref([]);
 const availableTechs = ref([]);
 const unavailableTechs = ref([]);
+const selectedServiceInfo = ref(null); // Stores service info from API response
 
 // Form data
 const formData = ref({
@@ -35,6 +36,10 @@ const formData = ref({
 
 // --- Computed ---
 const selectedService = computed(() => {
+    // Use API response first, fallback to local services list
+    if (selectedServiceInfo.value) {
+        return selectedServiceInfo.value;
+    }
     return services.value.find(
         (s) => s.id === Number(formData.value.service_id),
     );
@@ -115,6 +120,11 @@ const fetchAvailableTechnicians = async () => {
         availableTechs.value = data.available || [];
         unavailableTechs.value = data.unavailable || [];
 
+        // Save service info from API response for skill matching display
+        if (data.service) {
+            selectedServiceInfo.value = data.service;
+        }
+
         if (availableTechs.value.length === 0) {
             // 没有可用技师，询问用户
             const choice = confirm(
@@ -157,6 +167,7 @@ const goBack = () => {
             formData.value.allow_waitlist = false;
             availableTechs.value = [];
             unavailableTechs.value = [];
+            selectedServiceInfo.value = null;
         }
     }
 };
@@ -204,6 +215,7 @@ const closeModal = () => {
     };
     availableTechs.value = [];
     unavailableTechs.value = [];
+    selectedServiceInfo.value = null;
     emit("close");
 };
 
@@ -336,7 +348,7 @@ watch(
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <span class="text-sm">下一步将根据您选择的时间段，为您推荐可用的技师</span>
+                        <span class="text-sm">下一步将根据您选择的服务和时间，为您筛选具备相应技能的可用技师</span>
                     </div>
                 </div>
 
@@ -367,6 +379,9 @@ watch(
                                     d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             可用技师 ({{ availableTechs.length }})
+                            <span class="text-xs font-normal text-base-content/60" v-if="selectedServiceInfo">
+                                (均具备 {{ selectedServiceInfo.name }} 技能)
+                            </span>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <label v-for="tech in availableTechs" :key="tech.id" class="cursor-pointer">
@@ -386,6 +401,13 @@ watch(
                                                 </div>
                                                 <div class="text-xs text-success font-medium">
                                                     空闲可用
+                                                </div>
+                                                <!-- Skill matching indicator -->
+                                                <div class="text-xs text-base-content/60 mt-1 flex items-center gap-1" v-if="selectedServiceInfo">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3 text-success">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                                    </svg>
+                                                    具备 {{ selectedServiceInfo.name }} 技能
                                                 </div>
                                             </div>
                                             <svg v-if="
@@ -432,8 +454,9 @@ watch(
                                                 <div class="font-semibold text-base-content">
                                                     {{ tech.name }}
                                                 </div>
-                                                <div class="text-xs text-error font-medium">
-                                                    忙碌/休息
+                                                <!-- Updated unavailable reason -->
+                                                <div class="text-xs text-error font-medium mt-1">
+                                                    忙碌/休息/或不具备该服务技能
                                                 </div>
                                             </div>
                                             <svg v-if="
@@ -498,64 +521,82 @@ watch(
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
-                            <span class="text-base-content/60">时间</span>
-                            <div class="text-right">
-                                <div class="font-medium">
-                                    {{ formatTime(formData.start_time) }}
-                                </div>
-                                <div class="text-xs text-base-content/60">
-                                    至 {{ formatTime(endTime) }}
-                                </div>
-                            </div>
+                            <span class="text-base-content/60">开始时间</span>
+                            <span class="font-medium">{{
+                                formatTime(formData.value.start_time)
+                            }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
-                            <span class="text-base-content/60">价格</span>
-                            <span class="font-bold text-lg text-primary">¥{{ selectedService?.price }}</span>
+                            <span class="text-base-content/60">预计结束</span>
+                            <span class="font-medium">{{
+                                formatTime(endTime)
+                            }}</span>
                         </div>
-                        <div v-if="formData.allow_waitlist" class="divider my-0"></div>
-                        <div v-if="formData.allow_waitlist" class="flex justify-between items-center">
-                            <span class="text-base-content/60">状态</span>
-                            <span class="badge badge-warning">候补中</span>
+                        <div class="divider my-0"></div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-base-content/60">服务费用</span>
+                            <span class="font-medium">¥{{ selectedService?.price }}</span>
                         </div>
+                        <div class="divider my-0"></div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-base-content/60">预约状态</span>
+                            <span class="font-medium" :class="{
+                                'text-warning': formData.value.allow_waitlist,
+                                'text-success': !formData.value.allow_waitlist
+                            }">
+                                {{
+                                    formData.value.allow_waitlist
+                                        ? "候补中"
+                                        : "待服务"
+                                }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div v-if="formData.value.allow_waitlist" class="alert alert-warning">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span class="text-sm">预约将加入候补队列，一旦有技师可用，系统将自动为您安排。</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Modal Actions -->
-            <div class="px-6 py-4 border-t border-base-200 flex justify-between gap-3">
-                <button v-if="currentStep > 1" @click="goBack" class="btn btn-ghost" :disabled="submitting">
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 border-t border-base-200 bg-base-200/30 flex justify-between">
+                <button @click="goBack" class="btn btn-ghost" v-if="currentStep > 1">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                        stroke="currentColor" class="w-4 h-4 mr-1">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                        stroke="currentColor" class="w-4 h-4 mr-2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
                     </svg>
                     上一步
                 </button>
-                <div class="flex-1"></div>
-                <button @click="closeModal" class="btn btn-ghost" :disabled="submitting">
-                    取消
-                </button>
-                <button v-if="currentStep === 1" @click="goToStep2" class="btn btn-primary"
-                    :disabled="!canProceedStep1 || loading">
-                    <span v-if="loading" class="loading loading-spinner"></span>
-                    下一步
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                        stroke="currentColor" class="w-4 h-4 ml-1">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                    </svg>
-                </button>
-                <button v-if="currentStep === 2" @click="goToStep3" class="btn btn-primary"
-                    :disabled="!canProceedStep2">
-                    下一步
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                        stroke="currentColor" class="w-4 h-4 ml-1">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                    </svg>
-                </button>
-                <button v-if="currentStep === 3" @click="handleSubmit" class="btn btn-primary" :disabled="submitting">
-                    <span v-if="submitting" class="loading loading-spinner"></span>
-                    {{ submitting ? "提交中..." : "确认预约" }}
-                </button>
+                <div class="flex gap-2">
+                    <button @click="closeModal" class="btn btn-ghost">
+                        取消
+                    </button>
+                    <button v-if="currentStep === 1" @click="goToStep2" class="btn btn-neutral"
+                        :disabled="!canProceedStep1 || loading">
+                        <span v-if="loading" class="loading loading-spinner loading-xs mr-2"></span>
+                        下一步
+                    </button>
+                    <button v-if="currentStep === 2" @click="goToStep3" class="btn btn-neutral"
+                        :disabled="!canProceedStep2">
+                        下一步
+                    </button>
+                    <button v-if="currentStep === 3" @click="handleSubmit" class="btn btn-neutral"
+                        :disabled="submitting">
+                        <span v-if="submitting" class="loading loading-spinner loading-xs mr-2"></span>
+                        {{
+                            submitting
+                                ? "提交中..."
+                                : "确认预约"
+                        }}
+                    </button>
+                </div>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
