@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -109,7 +110,19 @@ func BatchSetSchedule(c *gin.Context) {
 }
 
 // GetAvailableTechnicians 获取指定时间段的可用技师列表
-// Query Params: start_time (RFC3339), service_id (必填，用于计算结束时间)
+// Query Params:
+//   - start_time (RFC3339格式，必填)
+//   - service_id (服务项目ID，必填)
+//
+// 筛选逻辑:
+//  1. 检查技师是否具备该服务项目所需的技能
+//  2. 检查技师当天是否在岗（排班状态）
+//  3. 检查技师在该时间段是否有冲突预约
+//
+// Response:
+//   - available: 具备技能且时间空闲的技师
+//   - unavailable: 不具备技能、休息中或忙碌的技师
+//   - service: 请求的服务项目信息
 func GetAvailableTechnicians(c *gin.Context) {
 	startTimeStr := c.Query("start_time")
 	serviceIDStr := c.Query("service_id")
@@ -142,6 +155,33 @@ func GetAvailableTechnicians(c *gin.Context) {
 		return
 	}
 
+	// ========== 新增：构建技师技能映射表 ==========
+	// techID -> []serviceID
+	techSkillsMap := make(map[uint][]uint)
+	for _, tech := range allTechnicians {
+		var techSkills []uint
+		if tech.Skills != nil {
+			// 尝试解析 JSON 数组 (新格式)
+			if err := json.Unmarshal(tech.Skills, &techSkills); err != nil {
+				// 如果解析失败，尝试解析旧格式（字符串数组）
+				var oldSkills []string
+				if err2 := json.Unmarshal(tech.Skills, &oldSkills); err2 == nil {
+					// 尝试根据名称匹配服务项目ID
+					for _, skillName := range oldSkills {
+						var serviceItem models.ServiceProduct
+						if err3 := db.DB.Where("name = ?", skillName).First(&serviceItem).Error; err3 == nil {
+							techSkills = append(techSkills, serviceItem.ID)
+						}
+					}
+				} else {
+					techSkills = []uint{}
+				}
+			}
+		}
+		techSkillsMap[tech.ID] = techSkills
+	}
+	// ===========================================
+
 	// 检查排班状态（是否在岗）
 	checkDate := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), 0, 0, 0, 0, time.UTC)
 	var schedules []models.Schedule
@@ -167,10 +207,30 @@ func GetAvailableTechnicians(c *gin.Context) {
 	var unavailableTechnicians []models.Technician
 
 	for _, tech := range allTechnicians {
+		techSkills := techSkillsMap[tech.ID]
+
+		// ========== 新增：检查是否具备该服务项目的技能 ==========
+		hasSkill := false
+		for _, skillID := range techSkills {
+			if skillID == service.ID {
+				hasSkill = true
+				break
+			}
+		}
+
+		if !hasSkill {
+			// 不具备该技能，加入不可用列表
+			tech.Skills = nil // 避免JSON序列化问题
+			unavailableTechnicians = append(unavailableTechnicians, tech)
+			continue
+		}
+		// ======================================================
+
 		// 检查是否在岗（默认在岗）
 		isAvailable, exists := scheduleMap[tech.ID]
 		if exists && !isAvailable {
 			// 休息中
+			tech.Skills = nil
 			unavailableTechnicians = append(unavailableTechnicians, tech)
 			continue
 		}
@@ -178,11 +238,13 @@ func GetAvailableTechnicians(c *gin.Context) {
 		// 检查是否有冲突预约
 		if busyTechMap[tech.ID] {
 			// 忙碌中
+			tech.Skills = nil
 			unavailableTechnicians = append(unavailableTechnicians, tech)
 			continue
 		}
 
 		// 可用
+		tech.Skills = nil // 避免JSON序列化问题
 		availableTechnicians = append(availableTechnicians, tech)
 	}
 
@@ -192,6 +254,10 @@ func GetAvailableTechnicians(c *gin.Context) {
 			"available":   availableTechnicians,
 			"unavailable": unavailableTechnicians,
 			"total":       len(allTechnicians),
+			"service": gin.H{ // 新增：返回服务信息供前端显示
+				"id":   service.ID,
+				"name": service.Name,
+			},
 		},
 		"msg": "success",
 	})
