@@ -6,6 +6,7 @@ import {
     updateTechnician,
     deleteTechnician,
 } from "../api/technicians";
+import { getServices } from "../api/services";
 import { getAppointments } from "../api/appointments";
 import TechnicianSchedule from "../components/TechnicianSchedule.vue";
 import Avatar from "../components/Avatar.vue";
@@ -21,6 +22,10 @@ const showModal = ref(false);
 const submitting = ref(false);
 const editingId = ref(null);
 
+// Service list for skills selection
+const services = ref([]);
+const showSkillsModal = ref(false); // 控制技能选择弹窗
+
 // Appointment Modal
 const showAppointmentModal = ref(false);
 const appointmentModalLoading = ref(false);
@@ -31,7 +36,7 @@ const technicianAppointments = ref([]);
 
 const formData = ref({
     name: "",
-    skills: "", // Comma separated string for input
+    skills: [], // Changed to array of service IDs
     status: 0,
 });
 
@@ -47,23 +52,59 @@ const fetchTechnicians = async () => {
     }
 };
 
+// Fetch services list for skills selection
+const fetchServices = async () => {
+    try {
+        const res = await getServices();
+        services.value = res || [];
+    } catch (error) {
+        console.error("Failed to fetch services:", error);
+        services.value = [];
+    }
+};
+
 onMounted(fetchTechnicians);
 
 const openCreateModal = () => {
     editingId.value = null;
-    formData.value = { name: "", skills: "", status: 0 };
+    formData.value = { name: "", skills: [], status: 0 };
     showModal.value = true;
+    fetchServices();
 };
 
 const handleEdit = (tech) => {
     editingId.value = tech.id;
-    const skills = parseSkills(tech.skills || tech.Skills);
+    let skillsArray = [];
+
+    if (tech.skills || tech.Skills) {
+        try {
+            const skillsData = JSON.parse(tech.skills || tech.Skills);
+            if (Array.isArray(skillsData)) {
+                // Check if array contains IDs (new format) or strings (old format)
+                if (skillsData.length > 0 && typeof skillsData[0] === 'number') {
+                    // New format: array of service IDs - use directly
+                    skillsArray = skillsData;
+                } else {
+                    // Old format: array of service names - convert to IDs
+                    skillsArray = skillsData.map(name => {
+                        const service = services.value.find(s => s.name === name);
+                        return service ? service.id : null;
+                    }).filter(id => id !== null);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to parse skills:", e);
+            skillsArray = [];
+        }
+    }
+
     formData.value = {
         name: tech.name,
-        skills: Array.isArray(skills) ? skills.join(", ") : "",
+        skills: skillsArray, // Array of IDs
         status: tech.status,
     };
     showModal.value = true;
+    fetchServices();
 };
 
 const handleSchedule = (tech) => {
@@ -95,7 +136,7 @@ const handleDateChange = (event) => {
     const newDate = event.target?.value || event.detail?.value || event.detail;
     if (newDate) {
         selectedAppointmentDate.value = newDate;
-        calendarOpen.value = false; // Close calendar after selection
+        calendarOpen.value = false;
         fetchTechnicianAppointments();
     }
 };
@@ -136,15 +177,9 @@ const handleDelete = async (tech) => {
 const handleSubmit = async () => {
     submitting.value = true;
     try {
-        // Convert comma-separated skills string to array
-        const skillsArray = formData.value.skills
-            .split(/[,，]/) // Split by comma (English or Chinese)
-            .map((s) => s.trim())
-            .filter((s) => s);
-
         const payload = {
             name: formData.value.name,
-            skills: JSON.stringify(skillsArray),
+            skills: JSON.stringify(formData.value.skills), // Submit ID array
             status: Number(formData.value.status),
         };
 
@@ -180,17 +215,60 @@ const getStatusInfo = (status) => {
     }
 };
 
-// Helper to parse skills
+// Helper to parse skills (supports both string and array)
+// Returns array of service names (for display) or service IDs (for editing)
 const parseSkills = (skills) => {
-    if (Array.isArray(skills)) return skills;
+    if (!skills) return [];
+    if (Array.isArray(skills)) {
+        // New format: array of service IDs
+        return skills.map(id => {
+            const service = services.value.find(s => s.id === id);
+            return service ? service.name : '未知服务';
+        });
+    }
     if (typeof skills === "string") {
         try {
-            return JSON.parse(skills);
+            const parsed = JSON.parse(skills);
+            if (Array.isArray(parsed)) {
+                // Could be old format (string array) or new format (ID array)
+                return parsed.map(skill => {
+                    if (typeof skill === 'number') {
+                        // New format: ID
+                        const service = services.value.find(s => s.id === skill);
+                        return service ? service.name : '未知服务';
+                    } else {
+                        // Old format: string (service name)
+                        return skill;
+                    }
+                });
+            }
+            return [parsed];
         } catch (e) {
             return [skills];
         }
     }
     return [];
+};
+
+// Toggle skill selection
+const toggleSkill = (serviceId) => {
+    const index = formData.value.skills.indexOf(serviceId);
+    if (index === -1) {
+        formData.value.skills.push(serviceId);
+    } else {
+        formData.value.skills.splice(index, 1);
+    }
+};
+
+// Check if skill is selected
+const isSkillSelected = (serviceId) => {
+    return formData.value.skills.includes(serviceId);
+};
+
+// Get service name by ID
+const getSkillName = (serviceId) => {
+    const service = services.value.find(s => s.id === serviceId);
+    return service ? service.name : '未知服务';
 };
 </script>
 
@@ -313,7 +391,7 @@ const parseSkills = (skills) => {
             <TechnicianSchedule :selected-technician="selectedTechnician" />
         </div>
 
-        <!-- Create Modal -->
+        <!-- Create/Edit Modal -->
         <dialog class="modal" :class="{ 'modal-open': showModal }">
             <div
                 class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-md">
@@ -322,7 +400,7 @@ const parseSkills = (skills) => {
                     <h3 class="font-semibold text-lg text-base-content">
                         {{ editingId ? "编辑技师" : "添加新技师" }}
                     </h3>
-                    <button @click="showModal = false" class="btn btn-ghost btn-sm btn-square text-base-content/60">
+                    <button @click="showModal = false; showSkillsModal = false" class="btn btn-ghost btn-sm btn-square text-base-content/60">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
                             stroke="currentColor" class="w-5 h-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -339,13 +417,42 @@ const parseSkills = (skills) => {
                                 class="input input-bordered w-full bg-base-100" required />
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-base-content/80 mb-1">
-                                技能标签
-                                <span class="text-base-content/40 font-normal">(用逗号分隔)</span>
+                        <!-- Skills Selection -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text font-medium">
+                                    掌握技能
+                                    <span class="text-base-content/40 font-normal">(可多选)</span>
+                                </span>
                             </label>
-                            <textarea v-model="formData.skills" placeholder="例如: 精油SPA, 足疗, 中式推拿" rows="3"
-                                class="textarea textarea-bordered w-full bg-base-100 resize-none"></textarea>
+                            
+                            <!-- Selected Skills Tags -->
+                            <div class="flex flex-wrap gap-2 mb-2" v-if="formData.skills.length > 0">
+                                <div v-for="serviceId in formData.skills" :key="serviceId"
+                                     class="badge badge-primary gap-1 cursor-pointer hover:opacity-80">
+                                    {{ getSkillName(serviceId) }}
+                                    <button type="button" @click="toggleSkill(serviceId)" class="btn btn-xs btn-circle btn-ghost">
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Add Skills Button -->
+                            <button type="button" @click="showSkillsModal = true" class="btn btn-outline w-full">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                                选择技能
+                                <span class="text-xs text-base-content/60 ml-2" v-if="formData.skills.length > 0">
+                                    (已选 {{ formData.skills.length }} 项)
+                                </span>
+                            </button>
+                            
+                            <label class="label" v-if="services.length === 0">
+                                <span class="label-text-alt text-base-content/60">
+                                    请先在"服务管理"中添加服务项目
+                                </span>
+                            </label>
                         </div>
 
                         <div v-if="editingId">
@@ -373,7 +480,82 @@ const parseSkills = (skills) => {
                 </div>
             </div>
             <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
-                <button @click="showModal = false">close</button>
+                <button @click="showModal = false; showSkillsModal = false">close</button>
+            </form>
+        </dialog>
+
+        <!-- Skills Selection Modal -->
+        <dialog class="modal" :class="{ 'modal-open': showSkillsModal }">
+            <div class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-4xl">
+                <!-- Modal Header -->
+                <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
+                    <div>
+                        <h3 class="font-semibold text-lg text-base-content">
+                            选择技师技能
+                        </h3>
+                        <p class="text-sm text-base-content/60 mt-1">
+                            已选择 {{ formData.skills.length }} 项服务
+                        </p>
+                    </div>
+                    <button @click="showSkillsModal = false" class="btn btn-ghost btn-sm btn-square text-base-content/60">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                            stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6">
+                    <!-- Empty State -->
+                    <div v-if="services.length === 0" class="text-center py-12 text-base-content/60">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="w-16 h-16 mx-auto mb-4 opacity-30">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                        </svg>
+                        <p class="text-lg font-medium">暂无服务项目</p>
+                        <p class="text-sm mt-1">请先在"服务管理"中添加服务项目</p>
+                    </div>
+
+                    <!-- Skills Grid -->
+                    <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto pr-2">
+                        <div v-for="service in services" :key="service.id"
+                             class="card bg-base-100 border-2 border-base-300 hover:border-primary transition-all cursor-pointer"
+                             :class="{ 'border-primary bg-primary/5': isSkillSelected(service.id) }"
+                             @click="toggleSkill(service.id)">
+                            <div class="card-body p-4">
+                                <div class="flex items-start gap-3">
+                                    <input type="checkbox"
+                                           :checked="isSkillSelected(service.id)"
+                                           @click.stop="toggleSkill(service.id)"
+                                           class="checkbox checkbox-primary mt-1" />
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-base-content">
+                                            {{ service.name }}
+                                        </div>
+                                        <div class="text-sm text-base-content/60 mt-1">
+                                            ¥{{ service.price }} · {{ service.duration }}分钟
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="modal-action px-6 py-4 border-t border-base-200 bg-base-200/30 flex justify-between">
+                    <button @click="showSkillsModal = false" class="btn btn-ghost">
+                        取消
+                    </button>
+                    <button @click="showSkillsModal = false" class="btn btn-neutral">
+                        确定 (已选 {{ formData.skills.length }} 项)
+                    </button>
+                </div>
+            </div>
+            <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
+                <button @click="showSkillsModal = false">close</button>
             </form>
         </dialog>
 
