@@ -332,25 +332,65 @@ func CompleteAppointment(c *gin.Context) {
 		return
 	}
 
-	// 3. Commission Logic
+		// 3. Commission Logic
 	if member.ReferrerID != nil {
-		commission := appt.ActualPrice * 0.10 // 10%
-
-		// Update Referrer Balance
+		// 使用整数运算避免浮点精度问题
+		// 将金额转换为分 (×100) 进行计算
+		priceInCents := int64(appt.ActualPrice * 100)
+		
+		// 10% 佣金，整数除法自动舍去小数部分
+		commissionInCents := priceInCents / 10
+		
+		// 精度校验: 确保佣金为非负数
+		if commissionInCents < 0 {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Invalid commission amount: negative value", nil))
+			return
+		}
+		
+		// 精度校验: 确保佣金在合理范围内 (不超过订单金额)
+		if commissionInCents > priceInCents {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Invalid commission amount: exceeds order amount", nil))
+			return
+		}
+		
+		// 更新推荐人余额 (转换回元)
 		var referrer models.Member
 		if err := tx.First(&referrer, *member.ReferrerID).Error; err == nil {
-			referrer.Balance += commission
-			if err := tx.Save(&referrer).Error; err != nil {
+			// 记录更新前的余额用于日志
+			oldBalance := referrer.Balance
+			
+			// 更新余额 (整数分转换为元)
+			referrer.Balance += float64(commissionInCents) / 100
+			
+			// 精度校验: 更新后的余额不能为负数
+			if referrer.Balance < 0 {
 				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to update referrer", nil))
+				c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Invalid referrer balance: would become negative", nil))
 				return
 			}
-
-			// Log Fission
+			
+			// 精度校验: 余额变化应该在合理范围内
+			expectedChange := float64(commissionInCents) / 100
+			actualChange := referrer.Balance - oldBalance
+			if actualChange < expectedChange-0.01 || actualChange > expectedChange+0.01 {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Balance calculation error", nil))
+				return
+			}
+			
+			if err := tx.Save(&referrer).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to update referrer balance", nil))
+				return
+			}
+			
+			// 记录分销日志 (使用整数计算后的精确金额)
 			fissionLog := models.FissionLog{
 				InviterID:        referrer.ID,
 				InviteeID:        member.ID,
-				CommissionAmount: commission,
+				CommissionAmount: float64(commissionInCents) / 100,
 				OrderID:          &appt.ID,
 			}
 			if err := tx.Create(&fissionLog).Error; err != nil {
