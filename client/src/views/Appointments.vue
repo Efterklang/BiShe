@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 import {
     getAppointments,
     cancelAppointment,
@@ -12,6 +12,13 @@ const appointments = ref([]);
 const loading = ref(true);
 const showModal = ref(false);
 const filterStatus = ref("");
+
+// Payment Modal State
+const showPaymentModal = ref(false);
+const currentPaymentAppt = ref(null);
+const paymentMethod = ref("balance"); // balance, cash, mixed
+const paymentBalance = ref(0);
+const paymentCash = ref(0);
 
 // Fetch appointments data
 const fetchData = async () => {
@@ -93,14 +100,107 @@ const handleCancel = async (id) => {
     }
 };
 
-const handleComplete = async (id) => {
-    if (!confirm("确定要完成该订单吗？这将结算费用并计算佣金。")) return;
+const handleComplete = (appt) => {
+    currentPaymentAppt.value = appt;
+    const price = appt.actual_price || appt.ActualPrice || 0;
+    const memberBalance = appt.member?.balance || appt.member?.Balance || 0;
+
+    // Default selection logic
+    if (memberBalance >= price) {
+        paymentMethod.value = "balance";
+        paymentBalance.value = price;
+        paymentCash.value = 0;
+    } else {
+        paymentMethod.value = "mixed";
+        if (memberBalance > 0) {
+            paymentBalance.value = memberBalance;
+            paymentCash.value = price - memberBalance;
+        } else {
+            paymentMethod.value = "cash";
+            paymentBalance.value = 0;
+            paymentCash.value = price;
+        }
+    }
+    showPaymentModal.value = true;
+};
+
+// Watch for payment method change to reset amounts
+watch(paymentMethod, (newMethod) => {
+    if (!currentPaymentAppt.value) return;
+    const price = currentPaymentAppt.value.actual_price || currentPaymentAppt.value.ActualPrice || 0;
+    const memberBalance = currentPaymentAppt.value.member?.balance || currentPaymentAppt.value.member?.Balance || 0;
+
+    if (newMethod === "balance") {
+        paymentBalance.value = price;
+        paymentCash.value = 0;
+    } else if (newMethod === "cash") {
+        paymentBalance.value = 0;
+        paymentCash.value = price;
+    } else if (newMethod === "mixed") {
+        // Default split for mixed: use max available balance
+        if (memberBalance >= price) {
+            paymentBalance.value = price;
+            paymentCash.value = 0;
+        } else {
+            paymentBalance.value = memberBalance;
+            paymentCash.value = price - memberBalance;
+        }
+    }
+});
+
+const onBalanceInput = () => {
+    if (paymentMethod.value !== "mixed") return;
+    const price = currentPaymentAppt.value?.actual_price || currentPaymentAppt.value?.ActualPrice || 0;
+
+    // Ensure balance doesn't exceed price or member balance is handled by validation,
+    // but here we auto-calc cash
+    if (paymentBalance.value > price) paymentBalance.value = price;
+    if (paymentBalance.value < 0) paymentBalance.value = 0;
+
+    // Auto calculate cash
+    paymentCash.value = price - paymentBalance.value;
+};
+
+const onCashInput = () => {
+    if (paymentMethod.value !== "mixed") return;
+    const price = currentPaymentAppt.value?.actual_price || currentPaymentAppt.value?.ActualPrice || 0;
+
+    if (paymentCash.value > price) paymentCash.value = price;
+    if (paymentCash.value < 0) paymentCash.value = 0;
+
+    // Auto calculate balance
+    paymentBalance.value = price - paymentCash.value;
+};
+
+const confirmPayment = async () => {
+    if (!currentPaymentAppt.value) return;
+
+    const price = currentPaymentAppt.value.actual_price || currentPaymentAppt.value.ActualPrice || 0;
+    const memberBalance = currentPaymentAppt.value.member?.balance || currentPaymentAppt.value.member?.Balance || 0;
+
+    // Validation
+    if (Math.abs(Number(paymentBalance.value) + Number(paymentCash.value) - price) > 0.01) {
+        alert(`支付总额必须等于订单金额 (¥${price})`);
+        return;
+    }
+
+    if (Number(paymentBalance.value) > memberBalance) {
+        alert(`余额不足，当前余额: ¥${memberBalance}`);
+        return;
+    }
+
     try {
-        await completeAppointment(id);
+        await completeAppointment(currentPaymentAppt.value.id, {
+            payment_method: paymentMethod.value,
+            balance_amount: Number(paymentBalance.value),
+            cash_amount: Number(paymentCash.value)
+        });
         alert("订单已完成");
+        showPaymentModal.value = false;
         await fetchData();
     } catch (error) {
-        alert("操作失败: " + (error.message || "未知错误"));
+        console.error(error);
+        alert("操作失败: " + (error.response?.data?.msg || error.message));
     }
 };
 
@@ -197,7 +297,7 @@ const showDetails = (appt) => {
                                     <Avatar :name="getTechName(appt.technician)" size="xs" />
                                     <span class="text-base-content/80">{{
                                         getTechName(appt.technician)
-                                    }}</span>
+                                        }}</span>
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-base-content/80">
@@ -242,7 +342,7 @@ const showDetails = (appt) => {
                                 <button v-if="
                                     (appt.status || appt.Status) ===
                                     'pending'
-                                " @click="handleComplete(appt.id)" class="btn btn-success btn-outline btn-xs">
+                                " @click="handleComplete(appt)" class="btn btn-success btn-outline btn-xs">
                                     完成
                                 </button>
                                 <button v-if="
@@ -261,5 +361,71 @@ const showDetails = (appt) => {
 
         <!-- Appointment Wizard Modal -->
         <AppointmentWizard :show="showModal" @close="showModal = false" @success="handleAppointmentCreated" />
+
+        <!-- Payment Modal -->
+        <div v-if="showPaymentModal" class="modal modal-open">
+            <div class="modal-box">
+                <h3 class="font-bold text-lg">订单结算</h3>
+                <div class="py-4 space-y-4" v-if="currentPaymentAppt">
+                    <!-- Info -->
+                    <div class="flex justify-between items-center bg-base-200 p-3 rounded-lg">
+                        <span>订单金额:</span>
+                        <span class="text-xl font-bold">¥{{ currentPaymentAppt.actual_price ||
+                            currentPaymentAppt.ActualPrice }}</span>
+                    </div>
+                    <div class="text-sm text-base-content/70">
+                        会员余额: <span class="font-bold text-primary">¥{{ currentPaymentAppt.member?.balance ||
+                            currentPaymentAppt.member?.Balance || 0 }}</span>
+                    </div>
+
+                    <!-- Payment Method -->
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-medium">支付方式</span></label>
+                        <div class="flex gap-4">
+                            <label class="label cursor-pointer gap-2">
+                                <input type="radio" name="payment" class="radio radio-primary" value="balance"
+                                    v-model="paymentMethod" />
+                                <span class="label-text">余额支付</span>
+                            </label>
+                            <label class="label cursor-pointer gap-2">
+                                <input type="radio" name="payment" class="radio radio-primary" value="cash"
+                                    v-model="paymentMethod" />
+                                <span class="label-text">现金/其他</span>
+                            </label>
+                            <label class="label cursor-pointer gap-2">
+                                <input type="radio" name="payment" class="radio radio-primary" value="mixed"
+                                    v-model="paymentMethod" />
+                                <span class="label-text">组合支付</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Amount Inputs -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">余额扣除</span></label>
+                            <input type="number" v-model.number="paymentBalance" @input="onBalanceInput"
+                                :disabled="paymentMethod === 'cash'" class="input input-bordered w-full" step="0.01"
+                                min="0" />
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">现金支付</span></label>
+                            <input type="number" v-model.number="paymentCash" @input="onCashInput"
+                                :disabled="paymentMethod === 'balance'" class="input input-bordered w-full" step="0.01"
+                                min="0" />
+                        </div>
+                    </div>
+
+                    <div class="text-xs text-warning"
+                        v-if="(currentPaymentAppt.member?.balance || currentPaymentAppt.member?.Balance || 0) < (currentPaymentAppt.actual_price || currentPaymentAppt.ActualPrice) && paymentMethod === 'balance'">
+                        警告：余额不足以全额支付
+                    </div>
+                </div>
+                <div class="modal-action">
+                    <button class="btn" @click="showPaymentModal = false">取消</button>
+                    <button class="btn btn-primary" @click="confirmPayment">确认支付</button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>

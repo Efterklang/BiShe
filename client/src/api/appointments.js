@@ -12,6 +12,6 @@ export const cancelAppointment = (id) => {
 	return api.put(`/api/appointments/${id}/cancel`);
 };
 
-export const completeAppointment = (id) => {
-	return api.put(`/api/appointments/${id}/complete`);
+export const completeAppointment = (id, data) => {
+	return api.put(`/api/appointments/${id}/complete`, data);
 };

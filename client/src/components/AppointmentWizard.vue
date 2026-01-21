@@ -107,7 +107,7 @@ const fetchInitialData = async () => {
 
 // --- Actions ---
 const fetchAvailableTechnicians = async () => {
-    if (!formData.value.start_time || !formData.value.service_id) return;
+    if (!formData.value.start_time || !formData.value.service_id) return false;
 
     loading.value = true;
     try {
@@ -125,6 +125,9 @@ const fetchAvailableTechnicians = async () => {
             selectedServiceInfo.value = data.service;
         }
 
+        // API 数据已获取，先停止 loading，避免 confirm 阻塞时背景一直是 loading 状态
+        loading.value = false;
+
         if (availableTechs.value.length === 0) {
             // 没有可用技师，询问用户
             const choice = confirm(
@@ -133,15 +136,18 @@ const fetchAvailableTechnicians = async () => {
             if (choice) {
                 formData.value.allow_waitlist = true;
                 // 显示所有技师供用户选择
+                return true;
             } else {
-                // 返回第一步
-                currentStep.value = 1;
-                return;
+                // 用户取消，留在这个步骤（Step 1）
+                return false;
             }
         }
+
+        return true;
     } catch (error) {
         console.error("Failed to fetch available technicians:", error);
         alert("查询可用技师失败: " + (error.message || "未知错误"));
+        return false;
     } finally {
         loading.value = false;
     }
@@ -149,8 +155,11 @@ const fetchAvailableTechnicians = async () => {
 
 const goToStep2 = async () => {
     if (!canProceedStep1.value) return;
-    await fetchAvailableTechnicians();
-    currentStep.value = 2;
+    const shouldProceed = await fetchAvailableTechnicians();
+    if (shouldProceed) {
+        currentStep.value = 2;
+    }
+    // 如果不继续，loading 已经在 finally 中设为 false 了
 };
 
 const goToStep3 = () => {
@@ -403,9 +412,13 @@ watch(
                                                     空闲可用
                                                 </div>
                                                 <!-- Skill matching indicator -->
-                                                <div class="text-xs text-base-content/60 mt-1 flex items-center gap-1" v-if="selectedServiceInfo">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3 h-3 text-success">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                                <div class="text-xs text-base-content/60 mt-1 flex items-center gap-1"
+                                                    v-if="selectedServiceInfo">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                        class="w-3 h-3 text-success">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="M4.5 12.75l6 6 9-13.5" />
                                                     </svg>
                                                     具备 {{ selectedServiceInfo.name }} 技能
                                                 </div>
@@ -456,7 +469,12 @@ watch(
                                                 </div>
                                                 <!-- Updated unavailable reason -->
                                                 <div class="text-xs text-error font-medium mt-1">
-                                                    忙碌/休息/或不具备该服务技能
+                                                    {{
+                                                        tech.reason === 'skill_mismatch' ? '不具备该技能' :
+                                                            tech.reason === 'leave' ? '休假/休息中' :
+                                                                tech.reason === 'busy' ? '该时段忙碌' :
+                                                                    '不可用'
+                                                    }}
                                                 </div>
                                             </div>
                                             <svg v-if="
@@ -503,27 +521,27 @@ watch(
                             <span class="text-base-content/60">会员</span>
                             <span class="font-medium">{{
                                 selectedMember?.name
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">服务项目</span>
                             <span class="font-medium">{{
                                 selectedService?.name
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">技师</span>
                             <span class="font-medium">{{
                                 selectedTech?.name
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">开始时间</span>
                             <span class="font-medium">{{
-                                formatTime(formData.value.start_time)
+                                formatTime(formData.start_time)
                             }}</span>
                         </div>
                         <div class="divider my-0"></div>
@@ -542,11 +560,11 @@ watch(
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">预约状态</span>
                             <span class="font-medium" :class="{
-                                'text-warning': formData.value.allow_waitlist,
-                                'text-success': !formData.value.allow_waitlist
+                                'text-warning': formData.allow_waitlist,
+                                'text-success': !formData.allow_waitlist
                             }">
                                 {{
-                                    formData.value.allow_waitlist
+                                    formData.allow_waitlist
                                         ? "候补中"
                                         : "待服务"
                                 }}
@@ -554,7 +572,7 @@ watch(
                         </div>
                     </div>
 
-                    <div v-if="formData.value.allow_waitlist" class="alert alert-warning">
+                    <div v-if="formData.allow_waitlist" class="alert alert-warning">
                         <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none"
                             viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

@@ -113,7 +113,7 @@ func ListAppointments(c *gin.Context) {
 	if err := query.
 		Preload("Member").
 		Preload("Technician").
-		Preload("ServiceItem").
+		Preload("ServiceProduct").
 		Limit(50).
 		Order("created_at DESC").
 		Find(&appointments).Error; err != nil {
@@ -303,19 +303,60 @@ func CompleteAppointment(c *gin.Context) {
 		return
 	}
 
+	// 解析支付请求参数
+	var req struct {
+		PaymentMethod string  `json:"payment_method"` // balance, cash, mixed
+		BalanceAmount float64 `json:"balance_amount"`
+		CashAmount    float64 `json:"cash_amount"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, "Invalid payment data", nil))
+		return
+	}
+
+	// 验证支付金额是否匹配订单金额 (允许0.01误差)
+	totalPaid := req.BalanceAmount + req.CashAmount
+	if totalPaid < appt.ActualPrice-0.01 || totalPaid > appt.ActualPrice+0.01 {
+		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, fmt.Sprintf("Payment amount mismatch: expected %.2f, got %.2f", appt.ActualPrice, totalPaid), nil))
+		return
+	}
+
 	// Start Transaction
 	tx := db.DB.Begin()
 
-	// 1. Update Appointment Status
+	member := appt.Member
+
+	// 处理余额扣款
+	if req.BalanceAmount > 0 {
+		// 重新查询会员以获取最新余额并加锁
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").First(&member, member.ID).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to lock member record", nil))
+			return
+		}
+
+		if member.Balance < req.BalanceAmount {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, "Insufficient balance", nil))
+			return
+		}
+		member.Balance -= req.BalanceAmount
+	}
+
+	// 1. Update Appointment Status and Payment Info
 	appt.Status = "completed"
+	appt.PaymentMethod = req.PaymentMethod
+	appt.PaidBalance = req.BalanceAmount
+	appt.PaidCash = req.CashAmount
+
 	if err := tx.Save(&appt).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to update appointment", nil))
 		return
 	}
 
-	// 2. Update Member Consumption & Level
-	member := appt.Member
+	// 2. Update Member Consumption & Level (注意：member已经在上面可能被更新过余额)
 	member.YearlyTotalConsumption += appt.ActualPrice
 
 	// Simple Level Logic
