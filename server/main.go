@@ -76,6 +76,7 @@ func main() {
 		api.GET("/schedules", handlers.GetSchedules)
 		api.GET("/schedules/detail", handlers.GetTechnicianScheduleDetail)
 		api.GET("/schedules/available-technicians", handlers.GetAvailableTechnicians)
+		api.GET("/schedules/slots", handlers.GetTimeSlotsAvailability)
 		api.POST("/schedules/batch", handlers.BatchSetSchedule)
 
 		// Services (read for all, write for manager only)

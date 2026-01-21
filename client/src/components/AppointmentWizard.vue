@@ -2,7 +2,7 @@
 import { ref, computed, watch } from "vue";
 import { getServices } from "../api/services";
 import { getMembers } from "../api/members";
-import { getAvailableTechnicians } from "../api/schedules";
+import { getAvailableTechnicians, getTimeSlots } from "../api/schedules";
 import { createAppointment } from "../api/appointments";
 
 const props = defineProps({
@@ -25,11 +25,16 @@ const availableTechs = ref([]);
 const unavailableTechs = ref([]);
 const selectedServiceInfo = ref(null); // Stores service info from API response
 
+// Time Slot State
+const selectedDate = ref("");
+const timeSlots = ref([]);
+const loadingSlots = ref(false);
+
 // Form data
 const formData = ref({
     member_id: "",
     service_id: "",
-    start_time: "",
+    start_time: "", // ISO string
     tech_id: "",
     allow_waitlist: false,
 });
@@ -87,6 +92,15 @@ const formatTime = (isoString) => {
     });
 };
 
+const formatTimeOnly = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    return date.toLocaleTimeString("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+};
+
 // --- Lifecycle ---
 const fetchInitialData = async () => {
     loading.value = true;
@@ -97,6 +111,12 @@ const fetchInitialData = async () => {
         ]);
         services.value = servicesData || [];
         members.value = membersData || [];
+
+        // Initialize date to today if empty
+        if (!selectedDate.value) {
+            const now = new Date();
+            selectedDate.value = now.toISOString().split('T')[0];
+        }
     } catch (error) {
         console.error("Failed to fetch initial data:", error);
         alert("加载数据失败，请刷新页面重试");
@@ -106,14 +126,42 @@ const fetchInitialData = async () => {
 };
 
 // --- Actions ---
+const fetchTimeSlots = async () => {
+    if (!selectedDate.value || !formData.value.service_id) {
+        timeSlots.value = [];
+        return;
+    }
+
+    loadingSlots.value = true;
+    try {
+        const slots = await getTimeSlots({
+            date: selectedDate.value,
+            service_id: formData.value.service_id
+        });
+        timeSlots.value = slots || [];
+    } catch (error) {
+        console.error("Failed to fetch time slots:", error);
+        timeSlots.value = [];
+    } finally {
+        loadingSlots.value = false;
+    }
+};
+
+const selectTimeSlot = (slot) => {
+    if (slot.status === 'closed') return;
+
+    formData.value.start_time = slot.start_time;
+    // If waitlist slot, set allow_waitlist automatically
+    formData.value.allow_waitlist = slot.status === 'waitlist';
+};
+
 const fetchAvailableTechnicians = async () => {
     if (!formData.value.start_time || !formData.value.service_id) return false;
 
     loading.value = true;
     try {
-        const startTime = new Date(formData.value.start_time).toISOString();
         const data = await getAvailableTechnicians({
-            start_time: startTime,
+            start_time: formData.value.start_time,
             service_id: formData.value.service_id,
         });
 
@@ -123,24 +171,6 @@ const fetchAvailableTechnicians = async () => {
         // Save service info from API response for skill matching display
         if (data.service) {
             selectedServiceInfo.value = data.service;
-        }
-
-        // API 数据已获取，先停止 loading，避免 confirm 阻塞时背景一直是 loading 状态
-        loading.value = false;
-
-        if (availableTechs.value.length === 0) {
-            // 没有可用技师，询问用户
-            const choice = confirm(
-                `该时间段没有可用技师。\n\n点击"确定"加入候补队列\n点击"取消"返回重新选择时间`,
-            );
-            if (choice) {
-                formData.value.allow_waitlist = true;
-                // 显示所有技师供用户选择
-                return true;
-            } else {
-                // 用户取消，留在这个步骤（Step 1）
-                return false;
-            }
         }
 
         return true;
@@ -159,7 +189,6 @@ const goToStep2 = async () => {
     if (shouldProceed) {
         currentStep.value = 2;
     }
-    // 如果不继续，loading 已经在 finally 中设为 false 了
 };
 
 const goToStep3 = () => {
@@ -171,9 +200,8 @@ const goBack = () => {
     if (currentStep.value > 1) {
         currentStep.value--;
         if (currentStep.value === 1) {
-            // 重置技师选择
+            // 重置技师选择，但保留 allow_waitlist 因为它现在绑定在时间槽上
             formData.value.tech_id = "";
-            formData.value.allow_waitlist = false;
             availableTechs.value = [];
             unavailableTechs.value = [];
             selectedServiceInfo.value = null;
@@ -222,6 +250,8 @@ const closeModal = () => {
         tech_id: "",
         allow_waitlist: false,
     };
+    selectedDate.value = "";
+    timeSlots.value = [];
     availableTechs.value = [];
     unavailableTechs.value = [];
     selectedServiceInfo.value = null;
@@ -238,26 +268,18 @@ watch(
     },
 );
 
-// 设置默认开始时间为当前时间的下一个整点
-const setDefaultStartTime = () => {
-    const now = new Date();
-    now.setHours(now.getHours() + 1, 0, 0, 0);
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    formData.value.start_time = `${year}-${month}-${day}T${hours}:${minutes}`;
-};
-
+// Watch for Service or Date change to fetch slots
 watch(
-    () => props.show,
-    (newVal) => {
-        if (newVal && !formData.value.start_time) {
-            setDefaultStartTime();
+    [() => formData.value.service_id, selectedDate],
+    ([newService, newDate]) => {
+        if (newService && newDate && props.show) {
+            // Reset start_time if service or date changes
+            formData.value.start_time = "";
+            fetchTimeSlots();
         }
-    },
+    }
 );
+
 </script>
 
 <template>
@@ -336,18 +358,49 @@ watch(
 
                     <div class="form-control">
                         <label class="label">
-                            <span class="label-text font-medium">选择开始时间
+                            <span class="label-text font-medium">选择日期
                                 <span class="text-error">*</span></span>
                         </label>
-                        <input type="datetime-local" v-model="formData.start_time" class="input input-bordered w-full"
-                            required />
+                        <input type="date" v-model="selectedDate" class="input input-bordered w-full" required />
+                    </div>
+
+                    <div class="form-control" v-if="formData.service_id && selectedDate">
                         <label class="label">
+                            <span class="label-text font-medium">选择时间段
+                                <span class="text-error">*</span></span>
+                        </label>
+
+                        <div v-if="loadingSlots" class="flex justify-center py-4">
+                            <span class="loading loading-spinner loading-md"></span>
+                        </div>
+
+                        <div v-else-if="timeSlots.length === 0" class="text-center py-4 text-base-content/60">
+                            暂无可用时间段
+                        </div>
+
+                        <div v-else class="grid grid-cols-4 gap-2 max-h-60 overflow-y-auto p-1">
+                            <button v-for="slot in timeSlots" :key="slot.time" @click="selectTimeSlot(slot)"
+                                :disabled="slot.status === 'closed'" class="btn btn-sm" :class="{
+                                    'btn-success text-white': slot.status === 'available' && formData.start_time === slot.start_time,
+                                    'btn-warning text-white': slot.status === 'waitlist' && formData.start_time === slot.start_time,
+                                    'btn-outline btn-success': slot.status === 'available' && formData.start_time !== slot.start_time,
+                                    'btn-outline btn-warning': slot.status === 'waitlist' && formData.start_time !== slot.start_time,
+                                    'btn-disabled opacity-50': slot.status === 'closed'
+                                }">
+                                {{ slot.time }}
+                                <span v-if="slot.status === 'waitlist'" class="text-[10px] ml-1">(候)</span>
+                            </button>
+                        </div>
+                        <label class="label" v-if="formData.start_time">
                             <span class="label-text-alt text-base-content/60">预计结束时间:
                                 {{
                                     selectedService
-                                        ? formatTime(endTime)
+                                        ? formatTimeOnly(endTime)
                                         : "请先选择服务项目"
                                 }}</span>
+                            <span v-if="formData.allow_waitlist" class="text-xs text-warning font-bold">
+                                * 您选择了候补时段
+                            </span>
                         </label>
                     </div>
 
@@ -357,7 +410,7 @@ watch(
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <span class="text-sm">下一步将根据您选择的服务和时间，为您筛选具备相应技能的可用技师</span>
+                        <span class="text-sm">下一步将根据您选择的服务和时间，为您筛选技师</span>
                     </div>
                 </div>
 
@@ -369,7 +422,7 @@ watch(
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
-                        <span>该时间段所有技师都不可用，您选择的预约将加入候补队列</span>
+                        <span>该时间段为候补时段，请选择一位技师加入候补队列</span>
                     </div>
 
                     <div class="form-control">
@@ -411,7 +464,6 @@ watch(
                                                 <div class="text-xs text-success font-medium">
                                                     空闲可用
                                                 </div>
-                                                <!-- Skill matching indicator -->
                                                 <div class="text-xs text-base-content/60 mt-1 flex items-center gap-1"
                                                     v-if="selectedServiceInfo">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none"
@@ -439,10 +491,7 @@ watch(
                     </div>
 
                     <!-- Unavailable Technicians -->
-                    <div v-if="
-                        unavailableTechs.length > 0 &&
-                        formData.allow_waitlist
-                    " class="mt-6">
+                    <div v-if="unavailableTechs.length > 0" class="mt-6">
                         <div class="text-sm font-medium text-base-content/60 mb-3 flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                                 stroke="currentColor" class="w-5 h-5">
@@ -452,26 +501,34 @@ watch(
                             不可用技师 ({{ unavailableTechs.length }})
                         </div>
                         <div class="grid grid-cols-2 gap-3">
-                            <label v-for="tech in unavailableTechs" :key="tech.id" class="cursor-pointer">
+                            <label v-for="tech in unavailableTechs" :key="tech.id" class="cursor-pointer"
+                                :class="{ 'cursor-not-allowed opacity-50': !formData.allow_waitlist }">
                                 <input type="radio" name="tech" :value="tech.id" v-model="formData.tech_id"
-                                    class="peer sr-only" />
+                                    class="peer sr-only" :disabled="!formData.allow_waitlist" />
                                 <div
-                                    class="card bg-base-100 border-2 border-base-300 hover:border-primary peer-checked:border-primary peer-checked:bg-primary/5 transition-all opacity-60">
+                                    class="card bg-base-100 border-2 border-base-300 hover:border-primary peer-checked:border-primary peer-checked:bg-primary/5 transition-all opacity-75">
                                     <div class="card-body p-4">
                                         <div class="flex items-center gap-3">
-                                            <div
-                                                class="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center text-lg font-bold text-error">
+                                            <div class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
+                                                :class="{
+                                                    'bg-error/10 text-error': tech.reason === 'skill_mismatch',
+                                                    'bg-warning/10 text-warning': tech.reason === 'busy',
+                                                    'bg-base-300 text-base-content/60': tech.reason === 'leave'
+                                                }">
                                                 {{ tech.name.charAt(0) }}
                                             </div>
                                             <div class="flex-1">
                                                 <div class="font-semibold text-base-content">
                                                     {{ tech.name }}
                                                 </div>
-                                                <!-- Updated unavailable reason -->
-                                                <div class="text-xs text-error font-medium mt-1">
+                                                <div class="text-xs font-medium mt-1" :class="{
+                                                    'text-error': tech.reason === 'skill_mismatch',
+                                                    'text-warning': tech.reason === 'busy',
+                                                    'text-base-content/60': tech.reason === 'leave'
+                                                }">
                                                     {{
                                                         tech.reason === 'skill_mismatch' ? '不具备该技能' :
-                                                            tech.reason === 'leave' ? '休假/休息中' :
+                                                            tech.reason === 'leave' ? '休假中' :
                                                                 tech.reason === 'busy' ? '该时段忙碌' :
                                                                     '不可用'
                                                     }}
@@ -521,35 +578,35 @@ watch(
                             <span class="text-base-content/60">会员</span>
                             <span class="font-medium">{{
                                 selectedMember?.name
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">服务项目</span>
                             <span class="font-medium">{{
                                 selectedService?.name
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">技师</span>
                             <span class="font-medium">{{
                                 selectedTech?.name
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">开始时间</span>
                             <span class="font-medium">{{
                                 formatTime(formData.start_time)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">预计结束</span>
                             <span class="font-medium">{{
                                 formatTime(endTime)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">

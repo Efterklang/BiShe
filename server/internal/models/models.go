@@ -43,6 +43,7 @@ type Technician struct {
 	Skills        datatypes.JSON `gorm:"type:json" json:"skills"`
 	Status        int            `gorm:"default:0" json:"status"` // 0:free, 1:booked, 2:leave
 	AverageRating float32        `gorm:"type:decimal(3,2);default:0" json:"average_rating"`
+	Reason        string         `gorm:"-" json:"reason,omitempty"` // skill_mismatch, leave, busy
 }
 
 // ServiceProduct describes a spa service with price and duration.

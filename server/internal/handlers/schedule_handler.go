@@ -221,6 +221,7 @@ func GetAvailableTechnicians(c *gin.Context) {
 		if !hasSkill {
 			// 不具备该技能，加入不可用列表
 			tech.Skills = nil // 避免JSON序列化问题
+			tech.Reason = "skill_mismatch"
 			unavailableTechnicians = append(unavailableTechnicians, tech)
 			continue
 		}
@@ -231,6 +232,7 @@ func GetAvailableTechnicians(c *gin.Context) {
 		if exists && !isAvailable {
 			// 休息中
 			tech.Skills = nil
+			tech.Reason = "leave"
 			unavailableTechnicians = append(unavailableTechnicians, tech)
 			continue
 		}
@@ -239,6 +241,7 @@ func GetAvailableTechnicians(c *gin.Context) {
 		if busyTechMap[tech.ID] {
 			// 忙碌中
 			tech.Skills = nil
+			tech.Reason = "busy"
 			unavailableTechnicians = append(unavailableTechnicians, tech)
 			continue
 		}
@@ -314,5 +317,172 @@ func GetTechnicianScheduleDetail(c *gin.Context) {
 			"appointments": appointments,
 		},
 		"msg": "success",
+	})
+}
+
+// GetTimeSlotsAvailability 获取某日所有时间段的可用性
+// Query Params: date (YYYY-MM-DD), service_id
+func GetTimeSlotsAvailability(c *gin.Context) {
+	dateStr := c.Query("date")
+	serviceIDStr := c.Query("service_id")
+
+	if dateStr == "" || serviceIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "date and service_id are required"})
+		return
+	}
+
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "Invalid date format"})
+		return
+	}
+
+	var service models.ServiceProduct
+	if err := db.DB.First(&service, serviceIDStr).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "msg": "Service not found"})
+		return
+	}
+
+	// 获取所有技师
+	var allTechnicians []models.Technician
+	if err := db.DB.Find(&allTechnicians).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "Failed to fetch technicians"})
+		return
+	}
+
+	// 1. 预处理：筛选具备技能的技师ID
+	var skilledTechIDs []uint
+	for _, tech := range allTechnicians {
+		var techSkills []uint
+		if tech.Skills != nil {
+			// 尝试解析JSON
+			json.Unmarshal(tech.Skills, &techSkills)
+			// 如果是旧格式，这里简化处理，假设已经迁移或者只支持新格式。
+			// 为了健壮性，这里简单复制之前的解析逻辑
+			if len(techSkills) == 0 {
+				var oldSkills []string
+				if err2 := json.Unmarshal(tech.Skills, &oldSkills); err2 == nil {
+					for _, skillName := range oldSkills {
+						var serviceItem models.ServiceProduct
+						if err3 := db.DB.Where("name = ?", skillName).First(&serviceItem).Error; err3 == nil {
+							if serviceItem.ID == service.ID {
+								techSkills = append(techSkills, serviceItem.ID)
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+
+		for _, sID := range techSkills {
+			if sID == service.ID {
+				skilledTechIDs = append(skilledTechIDs, tech.ID)
+				break
+			}
+		}
+	}
+
+	// 2. 预处理：获取当天排班（请假情况）
+	checkDate := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	var schedules []models.Schedule
+	db.DB.Where("date = ?", checkDate).Find(&schedules)
+	unavailableScheduleTechs := make(map[uint]bool)
+	for _, s := range schedules {
+		if !s.IsAvailable {
+			unavailableScheduleTechs[s.TechID] = true
+		}
+	}
+
+	// 3. 预处理：获取当天所有预约
+	startOfDay := checkDate
+	endOfDay := checkDate.Add(24 * time.Hour)
+	var appointments []models.Appointment
+	db.DB.Where("start_time >= ? AND start_time < ? AND status = ?", startOfDay, endOfDay, "pending").
+		Find(&appointments)
+
+	// 生成时间槽 (10:00 - 22:00, 30分钟间隔)
+	// TODO: 营业时间应从配置读取
+	openTime := time.Date(date.Year(), date.Month(), date.Day(), 10, 0, 0, 0, time.UTC)
+	closeTime := time.Date(date.Year(), date.Month(), date.Day(), 22, 0, 0, 0, time.UTC)
+
+	type TimeSlot struct {
+		Time           string `json:"time"`            // "10:00"
+		Status         string `json:"status"`          // "available", "waitlist", "closed"
+		AvailableCount int    `json:"available_count"` // 可用技师数
+		StartTime      string `json:"start_time"`      // ISO String
+	}
+
+	var slots []TimeSlot
+
+	for t := openTime; t.Before(closeTime); t = t.Add(30 * time.Minute) {
+		slotEndTime := t.Add(time.Duration(service.Duration) * time.Minute)
+
+		// 如果服务结束时间超过打烊时间，则不可约
+		if slotEndTime.After(closeTime) {
+			slots = append(slots, TimeSlot{
+				Time:           t.Format("15:04"),
+				Status:         "closed",
+				AvailableCount: 0,
+				StartTime:      t.Format(time.RFC3339),
+			})
+			continue
+		}
+
+		// 检查过去时间
+		if t.Before(time.Now()) {
+			slots = append(slots, TimeSlot{
+				Time:           t.Format("15:04"),
+				Status:         "closed", // Past time
+				AvailableCount: 0,
+				StartTime:      t.Format(time.RFC3339),
+			})
+			continue
+		}
+
+		// 计算该槽位可用技师
+		availableCount := 0
+		for _, techID := range skilledTechIDs {
+			// 1. 检查排班
+			if unavailableScheduleTechs[techID] {
+				continue
+			}
+
+			// 2. 检查预约冲突
+			isBusy := false
+			for _, appt := range appointments {
+				if appt.TechID == techID {
+					// 检查时间重叠
+					// max(start1, start2) < min(end1, end2)
+					if t.Before(appt.EndTime) && slotEndTime.After(appt.StartTime) {
+						isBusy = true
+						break
+					}
+				}
+			}
+			if isBusy {
+				continue
+			}
+
+			availableCount++
+		}
+
+		status := "waitlist"
+		if availableCount > 0 {
+			status = "available"
+		}
+
+		slots = append(slots, TimeSlot{
+			Time:           t.Format("15:04"),
+			Status:         status,
+			AvailableCount: availableCount,
+			StartTime:      t.Format(time.RFC3339),
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 200,
+		"data": slots,
+		"msg":  "success",
 	})
 }

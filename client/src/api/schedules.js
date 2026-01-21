@@ -45,3 +45,13 @@ export const getTechnicianScheduleDetail = (params) => {
 export const getAvailableTechnicians = (params) => {
   return api.get('/api/schedules/available-technicians', { params });
 };
+
+/**
+ * 获取时间段可用性
+ * @param {Object} params - 查询参数
+ * @param {string} params.date - 日期 YYYY-MM-DD
+ * @param {number} params.service_id - 服务项目ID
+ */
+export const getTimeSlots = (params) => {
+  return api.get('/api/schedules/slots', { params });
+};
