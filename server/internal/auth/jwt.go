@@ -26,7 +26,7 @@ var (
 func getJWTSecret() []byte {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		// Default secret for development (should be overridden in production)
+		// Default secret for development
 		secret = "smartspa-secret-key-change-in-production"
 	}
 	return []byte(secret)

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -332,45 +333,45 @@ func CompleteAppointment(c *gin.Context) {
 		return
 	}
 
-		// 3. Commission Logic
+	// 3. Commission Logic
 	if member.ReferrerID != nil {
 		// 使用整数运算避免浮点精度问题
 		// 将金额转换为分 (×100) 进行计算
 		priceInCents := int64(appt.ActualPrice * 100)
-		
+
 		// 10% 佣金，整数除法自动舍去小数部分
 		commissionInCents := priceInCents / 10
-		
+
 		// 精度校验: 确保佣金为非负数
 		if commissionInCents < 0 {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Invalid commission amount: negative value", nil))
 			return
 		}
-		
+
 		// 精度校验: 确保佣金在合理范围内 (不超过订单金额)
 		if commissionInCents > priceInCents {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Invalid commission amount: exceeds order amount", nil))
 			return
 		}
-		
+
 		// 更新推荐人余额 (转换回元)
 		var referrer models.Member
 		if err := tx.First(&referrer, *member.ReferrerID).Error; err == nil {
 			// 记录更新前的余额用于日志
 			oldBalance := referrer.Balance
-			
+
 			// 更新余额 (整数分转换为元)
 			referrer.Balance += float64(commissionInCents) / 100
-			
+
 			// 精度校验: 更新后的余额不能为负数
 			if referrer.Balance < 0 {
 				tx.Rollback()
 				c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Invalid referrer balance: would become negative", nil))
 				return
 			}
-			
+
 			// 精度校验: 余额变化应该在合理范围内
 			expectedChange := float64(commissionInCents) / 100
 			actualChange := referrer.Balance - oldBalance
@@ -379,13 +380,13 @@ func CompleteAppointment(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Balance calculation error", nil))
 				return
 			}
-			
+
 			if err := tx.Save(&referrer).Error; err != nil {
 				tx.Rollback()
 				c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to update referrer balance", nil))
 				return
 			}
-			
+
 			// 记录分销日志 (使用整数计算后的精确金额)
 			fissionLog := models.FissionLog{
 				InviterID:        referrer.ID,
@@ -417,20 +418,108 @@ func ListTechnicians(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Success(technicians, ""))
+	// 获取所有服务项目，用于将ID转换为名称
+	var services []models.ServiceProduct
+	if err := db.DB.Find(&services).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get services", nil))
+		return
+	}
+	serviceMap := make(map[uint]string)
+	for _, s := range services {
+		serviceMap[s.ID] = s.Name
+	}
+
+	var result []gin.H
+	for _, tech := range technicians {
+		var skillNames []string
+
+		if tech.Skills != nil {
+			// 直接解析 JSON 数组
+			var skillIDs []uint
+			if err := json.Unmarshal(tech.Skills, &skillIDs); err == nil {
+				for _, id := range skillIDs {
+					if name, ok := serviceMap[id]; ok {
+						skillNames = append(skillNames, name)
+					}
+				}
+			}
+		}
+
+		// 确保在没有技能或解析失败时，返回的是空数组[]而不是null
+		if skillNames == nil {
+			skillNames = make([]string, 0)
+		}
+
+		result = append(result, gin.H{
+			"id":             tech.ID,
+			"name":           tech.Name,
+			"status":         tech.Status,
+			"average_rating": tech.AverageRating,
+			"skills":         tech.Skills, // 保留原始 skills ID
+			"skill_names":    skillNames,
+		})
+	}
+
+	c.JSON(http.StatusOK, response.Success(result, ""))
 }
 
 // CreateTechnician 创建技师
 func CreateTechnician(c *gin.Context) {
-	var tech models.Technician
-	if err := c.ShouldBindJSON(&tech); err != nil {
+	var req struct {
+		Name   string        `json:"name"`
+		Status int           `json:"status"`
+		Skills []interface{} `json:"skills"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, err.Error(), nil))
 		return
 	}
 
-	if tech.Name == "" {
+	if req.Name == "" {
 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, "Name is required", nil))
 		return
+	}
+
+	var skillIDs []uint
+	if len(req.Skills) > 0 {
+		var services []models.ServiceProduct
+		if err := db.DB.Find(&services).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get services", nil))
+			return
+		}
+		serviceNameMap := make(map[string]uint)
+		for _, s := range services {
+			serviceNameMap[s.Name] = s.ID
+		}
+
+		for _, skill := range req.Skills {
+			switch v := skill.(type) {
+			case string:
+				if id, ok := serviceNameMap[v]; ok {
+					skillIDs = append(skillIDs, id)
+				} else {
+					c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, fmt.Sprintf("Invalid skill name: %s", v), nil))
+					return
+				}
+			case float64:
+				skillIDs = append(skillIDs, uint(v))
+			default:
+				c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, fmt.Sprintf("Invalid skill type: %T", v), nil))
+				return
+			}
+		}
+	}
+
+	skillsJSON, err := json.Marshal(skillIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to serialize skills", nil))
+		return
+	}
+
+	tech := models.Technician{
+		Name:   req.Name,
+		Status: req.Status,
+		Skills: skillsJSON,
 	}
 
 	if err := db.DB.Create(&tech).Error; err != nil {
@@ -450,15 +539,58 @@ func UpdateTechnician(c *gin.Context) {
 		return
 	}
 
-	var req models.Technician
+	// 为了灵活处理前端传来的 skills (可能是名称或ID)，我们定义一个新的结构体
+	var req struct {
+		Name   string        `json:"name"`
+		Status int           `json:"status"`
+		Skills []interface{} `json:"skills"` // 接收混合类型
+	}
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, err.Error(), nil))
 		return
 	}
 
+	// 将技能名称转换为ID
+	var skillIDs []uint
+	if len(req.Skills) > 0 {
+		var services []models.ServiceProduct
+		if err := db.DB.Find(&services).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get services", nil))
+			return
+		}
+		serviceNameMap := make(map[string]uint)
+		for _, s := range services {
+			serviceNameMap[s.Name] = s.ID
+		}
+
+		for _, skill := range req.Skills {
+			switch v := skill.(type) {
+			case string:
+				if id, ok := serviceNameMap[v]; ok {
+					skillIDs = append(skillIDs, id)
+				} else {
+					c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, fmt.Sprintf("Invalid skill name: %s", v), nil))
+					return
+				}
+			case float64: // JSON 数字默认解析为 float64
+				skillIDs = append(skillIDs, uint(v))
+			default:
+				c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, fmt.Sprintf("Invalid skill type: %T", v), nil))
+				return
+			}
+		}
+	}
+
+	skillsJSON, err := json.Marshal(skillIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to serialize skills", nil))
+		return
+	}
+
 	tech.Name = req.Name
-	tech.Skills = req.Skills
 	tech.Status = req.Status
+	tech.Skills = skillsJSON
 
 	if err := db.DB.Save(&tech).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to update technician", nil))

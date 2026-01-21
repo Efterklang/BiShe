@@ -179,7 +179,7 @@ const handleSubmit = async () => {
     try {
         const payload = {
             name: formData.value.name,
-            skills: JSON.stringify(formData.value.skills), // Submit ID array
+            skills: formData.value.skills, // 直接发送ID数组
             status: Number(formData.value.status),
         };
 
@@ -215,40 +215,7 @@ const getStatusInfo = (status) => {
     }
 };
 
-// Helper to parse skills (supports both string and array)
-// Returns array of service names (for display) or service IDs (for editing)
-const parseSkills = (skills) => {
-    if (!skills) return [];
-    if (Array.isArray(skills)) {
-        // New format: array of service IDs
-        return skills.map(id => {
-            const service = services.value.find(s => s.id === id);
-            return service ? service.name : '未知服务';
-        });
-    }
-    if (typeof skills === "string") {
-        try {
-            const parsed = JSON.parse(skills);
-            if (Array.isArray(parsed)) {
-                // Could be old format (string array) or new format (ID array)
-                return parsed.map(skill => {
-                    if (typeof skill === 'number') {
-                        // New format: ID
-                        const service = services.value.find(s => s.id === skill);
-                        return service ? service.name : '未知服务';
-                    } else {
-                        // Old format: string (service name)
-                        return skill;
-                    }
-                });
-            }
-            return [parsed];
-        } catch (e) {
-            return [skills];
-        }
-    }
-    return [];
-};
+
 
 // Toggle skill selection
 const toggleSkill = (serviceId) => {
@@ -362,9 +329,7 @@ const getSkillName = (serviceId) => {
                     <!-- Skills -->
                     <div class="flex-1">
                         <div class="flex flex-wrap gap-2 justify-center">
-                            <span v-for="(skill, idx) in parseSkills(
-                                tech.skills || tech.Skills,
-                            )" :key="idx" class="badge badge-outline text-xs">
+                            <span v-for="(skill, idx) in tech.skill_names" :key="idx" class="badge badge-outline text-xs">
                                 {{ skill }}
                             </span>
                         </div>
@@ -425,7 +390,7 @@ const getSkillName = (serviceId) => {
                                     <span class="text-base-content/40 font-normal">(可多选)</span>
                                 </span>
                             </label>
-                            
+
                             <!-- Selected Skills Tags -->
                             <div class="flex flex-wrap gap-2 mb-2" v-if="formData.skills.length > 0">
                                 <div v-for="serviceId in formData.skills" :key="serviceId"
@@ -436,7 +401,7 @@ const getSkillName = (serviceId) => {
                                     </button>
                                 </div>
                             </div>
-                            
+
                             <!-- Add Skills Button -->
                             <button type="button" @click="showSkillsModal = true" class="btn btn-outline w-full">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
@@ -447,7 +412,7 @@ const getSkillName = (serviceId) => {
                                     (已选 {{ formData.skills.length }} 项)
                                 </span>
                             </button>
-                            
+
                             <label class="label" v-if="services.length === 0">
                                 <span class="label-text-alt text-base-content/60">
                                     请先在"服务管理"中添加服务项目
