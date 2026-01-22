@@ -237,9 +237,8 @@ const showDetails = (appt) => {
                 </p>
             </div>
             <div class="flex items-center gap-3">
-                <select v-model="filterStatus" @change="fetchData"
-                    class="select select-bordered select-sm w-full max-w-xs">
-                    <option value="">所有状态</option>
+                <select v-model="filterStatus" @change="fetchData" class="select select-bordered w-36 shrink-0">
+                    <option selected value="">所有状态</option>
                     <option value="pending">待服务</option>
                     <option value="waiting">候补中</option>
                     <option value="completed">已完成</option>
@@ -297,7 +296,7 @@ const showDetails = (appt) => {
                                     <Avatar :name="getTechName(appt.technician)" size="xs" />
                                     <span class="text-base-content/80">{{
                                         getTechName(appt.technician)
-                                        }}</span>
+                                    }}</span>
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-base-content/80">

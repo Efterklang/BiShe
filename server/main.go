@@ -67,7 +67,7 @@ func main() {
 		api.PUT("/appointments/:id/complete", handlers.CompleteAppointment)
 
 		// Fission ranking (both manager and operator)
-		api.GET("/fission/ranking", handlers.GetFissionRanking)
+		api.GET("/fission/ranking", dashboardHandler.GetFissionRanking)
 
 		// Technicians (read for all, write for manager only)
 		api.GET("/technicians", handlers.ListTechnicians)

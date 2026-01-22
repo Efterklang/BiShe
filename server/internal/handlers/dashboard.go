@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -198,7 +199,7 @@ func (h *DashboardHandler) GetServiceRanking(c *gin.Context) {
 		TotalRevenue float64 `json:"total_revenue"`
 	}
 
-	var rankings []ServiceRank
+	var rankings = make([]ServiceRank, 0)
 
 	// 统计近30天各服务的订单数和营收
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
@@ -211,10 +212,12 @@ func (h *DashboardHandler) GetServiceRanking(c *gin.Context) {
 		Order("order_count DESC").
 		Limit(10).
 		Scan(&rankings).Error; err != nil {
+		log.Printf("GetServiceRanking error: %v", err)
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get service ranking", err.Error()))
 		return
 	}
 
+	log.Printf("GetServiceRanking found %d items", len(rankings))
 	c.JSON(http.StatusOK, response.Success(rankings, ""))
 }
 
@@ -230,7 +233,7 @@ func (h *DashboardHandler) GetFissionRanking(c *gin.Context) {
 		TotalCommission float64 `json:"totalCommission"`
 	}
 
-	var rankings []FissionRank
+	var rankings = make([]FissionRank, 0)
 
 	// 统计每个会员邀请的人数和累计佣金
 	if err := h.db.Model(&models.Member{}).
@@ -242,10 +245,12 @@ func (h *DashboardHandler) GetFissionRanking(c *gin.Context) {
 		Order("invite_count DESC, total_commission DESC").
 		Limit(10).
 		Scan(&rankings).Error; err != nil {
+		log.Printf("GetFissionRanking error: %v", err)
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get fission ranking", err.Error()))
 		return
 	}
 
+	log.Printf("GetFissionRanking found %d items", len(rankings))
 	c.JSON(http.StatusOK, response.Success(rankings, ""))
 }
 
@@ -325,7 +330,7 @@ func (h *DashboardHandler) GetProductSalesOverview(c *gin.Context) {
 		TotalRevenue float64 `json:"total_revenue"`
 	}
 
-	var topProducts []ProductSales
+	var topProducts = make([]ProductSales, 0)
 
 	// 统计热销商品
 	if err := h.db.Model(&models.Order{}).
@@ -336,9 +341,11 @@ func (h *DashboardHandler) GetProductSalesOverview(c *gin.Context) {
 		Order("sales_count DESC").
 		Limit(5).
 		Scan(&topProducts).Error; err != nil {
+		log.Printf("GetProductSalesOverview error: %v", err)
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get product sales", err.Error()))
 		return
 	}
+	log.Printf("GetProductSalesOverview found %d items", len(topProducts))
 
 	// 统计总销售额和总销量
 	var totalRevenue float64
