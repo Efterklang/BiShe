@@ -106,7 +106,7 @@ const fetchInitialData = async () => {
     loading.value = true;
     try {
         const [servicesData, membersData] = await Promise.all([
-            getServices(),
+            getServices({ active_only: true }),
             getMembers(),
         ]);
         services.value = servicesData || [];
@@ -578,35 +578,35 @@ watch(
                             <span class="text-base-content/60">会员</span>
                             <span class="font-medium">{{
                                 selectedMember?.name
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">服务项目</span>
                             <span class="font-medium">{{
                                 selectedService?.name
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">技师</span>
                             <span class="font-medium">{{
                                 selectedTech?.name
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">开始时间</span>
                             <span class="font-medium">{{
                                 formatTime(formData.start_time)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">预计结束</span>
                             <span class="font-medium">{{
                                 formatTime(endTime)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">

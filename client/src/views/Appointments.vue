@@ -244,7 +244,7 @@ const showDetails = (appt) => {
                     <option value="completed">已完成</option>
                     <option value="cancelled">已取消</option>
                 </select>
-                <button @click="showModal = true" class="btn btn-primary btn-sm">
+                <button @click="showModal = true" class="btn btn-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
                         stroke="currentColor" class="w-4 h-4 mr-2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -257,22 +257,20 @@ const showDetails = (appt) => {
         <!-- Appointments Table -->
         <div class="bg-base-100 rounded-box border border-base-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="table table-zebra w-full">
-                    <thead class="bg-base-200 text-base-content/70 uppercase text-xs">
+                <table class="table">
+                    <thead>
                         <tr>
-                            <th class="px-6 py-3 font-medium">ID</th>
-                            <th class="px-6 py-3 font-medium">会员</th>
-                            <th class="px-6 py-3 font-medium">技师</th>
-                            <th class="px-6 py-3 font-medium">服务项目</th>
-                            <th class="px-6 py-3 font-medium">时间段</th>
-                            <th class="px-6 py-3 font-medium">状态</th>
-                            <th class="px-6 py-3 font-medium">价格</th>
-                            <th class="px-6 py-3 font-medium text-right">
-                                操作
-                            </th>
+                            <th>ID</th>
+                            <th>会员</th>
+                            <th>技师</th>
+                            <th>服务项目</th>
+                            <th>时间段</th>
+                            <th>状态</th>
+                            <th>价格</th>
+                            <th>操作</th>
                         </tr>
                     </thead>
-                    <tbody class="text-sm">
+                    <tbody>
                         <tr v-if="loading">
                             <td colspan="8" class="px-6 py-12 text-center">
                                 <span class="loading loading-spinner loading-lg text-base-content/30"></span>
@@ -288,10 +286,10 @@ const showDetails = (appt) => {
                             <td class="px-6 py-4 text-base-content/50 font-mono text-xs">
                                 #{{ appt.id }}
                             </td>
-                            <td class="px-6 py-4 font-medium text-base-content">
+                            <td class="font-medium text-base-content">
                                 {{ getMemberName(appt.member) }}
                             </td>
-                            <td class="px-6 py-4">
+                            <td>
                                 <div class="flex items-center gap-2">
                                     <Avatar :name="getTechName(appt.technician)" size="xs" />
                                     <span class="text-base-content/80">{{
@@ -299,7 +297,7 @@ const showDetails = (appt) => {
                                     }}</span>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 text-base-content/80">
+                            <td>
                                 {{ getServiceName(appt.service_item) }}
                             </td>
                             <td class="px-6 py-4 text-base-content/60 text-xs">
@@ -319,7 +317,7 @@ const showDetails = (appt) => {
                                     }}
                                 </div>
                             </td>
-                            <td class="px-6 py-4">
+                            <td>
                                 <span :class="getStatusBadge(
                                     appt.status || appt.Status,
                                 )
@@ -331,10 +329,10 @@ const showDetails = (appt) => {
                                     }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 font-medium text-base-content">
+                            <td>
                                 ¥{{ appt.actual_price || appt.ActualPrice }}
                             </td>
-                            <td class="px-6 py-4 text-right flex justify-end gap-2">
+                            <td>
                                 <button @click="showDetails(appt)" class="btn btn-ghost btn-xs">
                                     详情
                                 </button>

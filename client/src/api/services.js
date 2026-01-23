@@ -1,7 +1,7 @@
 import api from "./axios";
 
-export const getServices = () => {
-	return api.get("/api/services");
+export const getServices = (params) => {
+	return api.get("/api/services", { params });
 };
 
 export const createService = (data) => {
