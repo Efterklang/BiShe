@@ -7,6 +7,15 @@ import {
 } from "../api/appointments";
 import AppointmentWizard from "../components/AppointmentWizard.vue";
 import Avatar from "../components/Avatar.vue";
+import { 
+    Plus, 
+    Calendar, 
+    Clock, 
+    CheckCircle2, 
+    XCircle, 
+    AlertCircle, 
+    Wallet 
+} from 'lucide-vue-next';
 
 const appointments = ref([]);
 const loading = ref(true);
@@ -14,7 +23,7 @@ const showModal = ref(false);
 const filterStatus = ref("");
 
 // Payment Modal State
-const showPaymentModal = ref(false);
+const paymentModalRef = ref(null);
 const currentPaymentAppt = ref(null);
 const paymentMethod = ref("balance"); // balance, cash, mixed
 const paymentBalance = ref(0);
@@ -51,10 +60,10 @@ const formatDate = (dateStr) => {
 // Helper for status badge
 const getStatusBadge = (status) => {
     const map = {
-        待服务: "badge badge-info badge-outline",
-        完成: "badge badge-success badge-outline",
-        候补: "badge badge-warning badge-outline",
-        取消: "badge badge-neutral badge-outline",
+        待服务: "badge badge-info badge-outline gap-1",
+        完成: "badge badge-success badge-outline gap-1",
+        候补: "badge badge-warning badge-outline gap-1",
+        取消: "badge badge-neutral badge-outline gap-1",
     };
 
     // Handle numeric or different string inputs if backend changes
@@ -121,8 +130,13 @@ const handleComplete = (appt) => {
             paymentCash.value = price;
         }
     }
-    showPaymentModal.value = true;
+    paymentModalRef.value?.showModal();
 };
+
+const closePaymentModal = () => {
+    paymentModalRef.value?.close();
+    currentPaymentAppt.value = null;
+}
 
 // Watch for payment method change to reset amounts
 watch(paymentMethod, (newMethod) => {
@@ -196,7 +210,7 @@ const confirmPayment = async () => {
             cash_amount: Number(paymentCash.value)
         });
         alert("订单已完成");
-        showPaymentModal.value = false;
+        closePaymentModal();
         await fetchData();
     } catch (error) {
         console.error(error);
@@ -225,14 +239,14 @@ const showDetails = (appt) => {
 </script>
 
 <template>
-    <div class="max-w-7xl mx-auto">
+    <div>
         <!-- Header Section -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
             <div>
-                <h1 class="text-3xl font-bold tracking-tight text-base-content">
+                <h1 class="text-2xl font-bold tracking-tight text-base-content">
                     预约管理
                 </h1>
-                <p class="mt-2 text-base-content/60">
+                <p class="mt-1 text-base-content/60">
                     查看所有预约订单，处理候补队列与调度冲突。
                 </p>
             </div>
@@ -245,182 +259,199 @@ const showDetails = (appt) => {
                     <option value="cancelled">已取消</option>
                 </select>
                 <button @click="showModal = true" class="btn btn-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
-                        stroke="currentColor" class="w-4 h-4 mr-2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
+                    <Plus class="w-4 h-4 mr-1" />
                     新建预约
                 </button>
             </div>
         </div>
 
         <!-- Appointments Table -->
-        <div class="card">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>会员</th>
-                        <th>技师</th>
-                        <th>服务项目</th>
-                        <th>时间段</th>
-                        <th>状态</th>
-                        <th>价格</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-if="loading">
-                        <td colspan="8" class="px-6 py-12 text-center">
-                            <span class="loading loading-spinner loading-lg text-base-content/30"></span>
-                        </td>
-                    </tr>
-                    <tr v-else-if="appointments.length === 0">
-                        <td colspan="8" class="px-6 py-12 text-center text-base-content/50">
-                            暂无预约记录
-                        </td>
-                    </tr>
-                    <tr v-else v-for="appt in appointments" :key="appt.id"
-                        class="hover:bg-base-200/50 transition-colors">
-                        <td class="px-6 py-4 text-base-content/50 font-mono text-xs">
-                            #{{ appt.id }}
-                        </td>
-                        <td class="font-medium text-base-content">
-                            {{ getMemberName(appt.member) }}
-                        </td>
-                        <td>
-                            <div class="flex items-center gap-2">
-                                <Avatar :name="getTechName(appt.technician)" size="xs" />
-                                <span class="text-base-content/80">{{
-                                    getTechName(appt.technician)
-                                }}</span>
-                            </div>
-                        </td>
-                        <td>
-                            {{ getServiceName(appt.service_item) }}
-                        </td>
-                        <td class="px-6 py-4 text-base-content/60 text-xs">
-                            <div>
-                                {{
-                                    formatDate(
-                                        appt.start_time || appt.StartTime,
-                                    )
-                                }}
-                            </div>
-                            <div class="text-base-content/40 mt-0.5">
-                                至
-                                {{
-                                    formatDate(
-                                        appt.end_time || appt.EndTime,
-                                    ).split(" ")[1]
-                                }}
-                            </div>
-                        </td>
-                        <td>
-                            <span :class="getStatusBadge(
-                                appt.status || appt.Status,
-                            )
-                                ">
-                                {{
-                                    getStatusText(
-                                        appt.status || appt.Status,
-                                    )
-                                }}
-                            </span>
-                        </td>
-                        <td>
-                            ¥{{ appt.actual_price || appt.ActualPrice }}
-                        </td>
-                        <td>
-                            <button @click="showDetails(appt)" class="btn btn-ghost btn-xs">
-                                详情
-                            </button>
-                            <button v-if="
-                                (appt.status || appt.Status) ===
-                                'pending'
-                            " @click="handleComplete(appt)" class="btn btn-success btn-outline btn-xs">
-                                完成
-                            </button>
-                            <button v-if="
-                                ['pending', 'waiting'].includes(
-                                    appt.status || appt.Status,
-                                )
-                            " @click="handleCancel(appt.id)" class="btn btn-error btn-outline btn-xs">
-                                取消
-                            </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="card bg-base-100 border border-base-300 shadow-sm rounded-xl overflow-hidden">
+            <div class="card-body p-0">
+                <div v-if="loading" class="flex justify-center py-16">
+                    <span class="loading loading-spinner loading-lg text-primary"></span>
+                </div>
+                
+                <div v-else-if="appointments.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
+                    <div class="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mb-4">
+                        <Calendar class="w-8 h-8 text-base-content/40" />
+                    </div>
+                    <h3 class="text-lg font-bold text-base-content">暂无预约记录</h3>
+                    <p class="text-base-content/60 mt-1 max-w-sm">
+                        当前系统中还没有任何预约。点击右上角的"新建预约"按钮来添加。
+                    </p>
+                </div>
+
+                <div v-else class="overflow-x-auto">
+                    <table class="table w-full">
+                        <thead class="bg-base-200/50 text-base-content/60 uppercase text-xs">
+                            <tr>
+                                <th class="font-medium">ID</th>
+                                <th class="font-medium">会员</th>
+                                <th class="font-medium">技师</th>
+                                <th class="font-medium">服务项目</th>
+                                <th class="font-medium">时间段</th>
+                                <th class="font-medium">状态</th>
+                                <th class="font-medium">价格</th>
+                                <th class="font-medium text-right pr-6">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-base-200">
+                            <tr v-for="appt in appointments" :key="appt.id"
+                                class="hover:bg-base-50/50 transition-colors">
+                                <td class="px-6 py-4 text-base-content/50 font-mono text-xs">
+                                    #{{ appt.id }}
+                                </td>
+                                <td class="font-medium text-base-content">
+                                    {{ getMemberName(appt.member) }}
+                                </td>
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <Avatar :name="getTechName(appt.technician)" size="xs" />
+                                        <span class="text-base-content/80 text-sm">{{
+                                            getTechName(appt.technician)
+                                        }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="badge badge-ghost text-xs">
+                                        {{ getServiceName(appt.service_item) }}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-base-content/60 text-xs">
+                                    <div class="flex items-center gap-1.5 font-medium text-base-content/80">
+                                        <Calendar class="w-3 h-3" />
+                                        {{ formatDate(appt.start_time || appt.StartTime).split(" ")[0] }}
+                                    </div>
+                                    <div class="flex items-center gap-1.5 text-base-content/50 mt-1">
+                                        <Clock class="w-3 h-3" />
+                                        {{ formatDate(appt.start_time || appt.StartTime).split(" ")[1] }}
+                                        -
+                                        {{ formatDate(appt.end_time || appt.EndTime).split(" ")[1] }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span :class="getStatusBadge(appt.status || appt.Status)">
+                                        <CheckCircle2 v-if="(appt.status || appt.Status) === 'completed'" class="w-3 h-3" />
+                                        <Clock v-else-if="(appt.status || appt.Status) === 'pending'" class="w-3 h-3" />
+                                        <AlertCircle v-else-if="(appt.status || appt.Status) === 'waiting'" class="w-3 h-3" />
+                                        <XCircle v-else-if="(appt.status || appt.Status) === 'cancelled'" class="w-3 h-3" />
+                                        {{ getStatusText(appt.status || appt.Status) }}
+                                    </span>
+                                </td>
+                                <td class="font-mono text-sm">
+                                    ¥{{ appt.actual_price || appt.ActualPrice }}
+                                </td>
+                                <td class="text-right pr-6">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button @click="showDetails(appt)" class="btn btn-ghost btn-xs">
+                                            详情
+                                        </button>
+                                        <button v-if="(appt.status || appt.Status) === 'pending'" 
+                                            @click="handleComplete(appt)" 
+                                            class="btn btn-success btn-xs text-white">
+                                            完成
+                                        </button>
+                                        <button v-if="['pending', 'waiting'].includes(appt.status || appt.Status)" 
+                                            @click="handleCancel(appt.id)" 
+                                            class="btn btn-error btn-ghost btn-xs text-error hover:bg-error/10">
+                                            取消
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination or count could go here -->
+                <div class="bg-base-50 px-6 py-3 border-t border-base-200 text-xs text-base-content/60 flex justify-between items-center"
+                    v-if="appointments.length > 0">
+                    <span>共 {{ appointments.length }} 条记录</span>
+                </div>
+            </div>
         </div>
 
         <!-- Appointment Wizard Modal -->
         <AppointmentWizard :show="showModal" @close="showModal = false" @success="handleAppointmentCreated" />
 
         <!-- Payment Modal -->
-        <div v-if="showPaymentModal" class="modal modal-open">
+        <dialog ref="paymentModalRef" class="modal">
             <div class="modal-box">
-                <h3 class="font-bold text-lg">订单结算</h3>
-                <div class="py-4 space-y-4" v-if="currentPaymentAppt">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <Wallet class="w-5 h-5 text-primary" />
+                    订单结算
+                </h3>
+                <div class="py-6 space-y-6" v-if="currentPaymentAppt">
                     <!-- Info -->
-                    <div class="flex justify-between items-center bg-base-200 p-3 rounded-lg">
-                        <span>订单金额:</span>
-                        <span class="text-xl font-bold">¥{{ currentPaymentAppt.actual_price ||
-                            currentPaymentAppt.ActualPrice }}</span>
+                    <div class="flex justify-between items-center bg-base-200/50 p-4 rounded-xl border border-base-200">
+                        <span class="text-base-content/70">订单金额</span>
+                        <span class="text-2xl font-bold font-mono">¥{{ currentPaymentAppt.actual_price || currentPaymentAppt.ActualPrice }}</span>
                     </div>
-                    <div class="text-sm text-base-content/70">
-                        会员余额: <span class="font-bold text-primary">¥{{ currentPaymentAppt.member?.balance ||
-                            currentPaymentAppt.member?.Balance || 0 }}</span>
+                    <div class="text-sm flex justify-between px-1">
+                        <span class="text-base-content/60">会员当前余额</span>
+                        <span class="font-bold text-primary font-mono">¥{{ currentPaymentAppt.member?.balance || currentPaymentAppt.member?.Balance || 0 }}</span>
                     </div>
+
+                    <div class="divider my-0"></div>
 
                     <!-- Payment Method -->
                     <div class="form-control">
-                        <label class="label"><span class="label-text font-medium">支付方式</span></label>
-                        <div class="flex gap-4">
-                            <label class="label cursor-pointer gap-2">
-                                <input type="radio" name="payment" class="radio radio-primary" value="balance"
-                                    v-model="paymentMethod" />
-                                <span class="label-text">余额支付</span>
+                        <label class="label pt-0"><span class="label-text font-medium">选择支付方式</span></label>
+                        <div class="grid grid-cols-3 gap-3">
+                            <label class="cursor-pointer border border-base-300 p-3 rounded-lg hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-2 text-center"
+                                :class="{ 'border-primary bg-primary/5 ring-1 ring-primary': paymentMethod === 'balance' }">
+                                <input type="radio" name="payment" class="hidden" value="balance" v-model="paymentMethod" />
+                                <span class="text-sm font-medium">余额支付</span>
                             </label>
-                            <label class="label cursor-pointer gap-2">
-                                <input type="radio" name="payment" class="radio radio-primary" value="cash"
-                                    v-model="paymentMethod" />
-                                <span class="label-text">现金/其他</span>
+                            <label class="cursor-pointer border border-base-300 p-3 rounded-lg hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-2 text-center"
+                                :class="{ 'border-primary bg-primary/5 ring-1 ring-primary': paymentMethod === 'cash' }">
+                                <input type="radio" name="payment" class="hidden" value="cash" v-model="paymentMethod" />
+                                <span class="text-sm font-medium">现金/其他</span>
                             </label>
-                            <label class="label cursor-pointer gap-2">
-                                <input type="radio" name="payment" class="radio radio-primary" value="mixed"
-                                    v-model="paymentMethod" />
-                                <span class="label-text">组合支付</span>
+                            <label class="cursor-pointer border border-base-300 p-3 rounded-lg hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-2 text-center"
+                                :class="{ 'border-primary bg-primary/5 ring-1 ring-primary': paymentMethod === 'mixed' }">
+                                <input type="radio" name="payment" class="hidden" value="mixed" v-model="paymentMethod" />
+                                <span class="text-sm font-medium">组合支付</span>
                             </label>
                         </div>
                     </div>
 
                     <!-- Amount Inputs -->
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-2 gap-4 bg-base-100 p-1">
                         <div class="form-control">
-                            <label class="label"><span class="label-text">余额扣除</span></label>
-                            <input type="number" v-model.number="paymentBalance" @input="onBalanceInput"
-                                :disabled="paymentMethod === 'cash'" class="input input-bordered w-full" step="0.01"
-                                min="0" />
+                            <label class="label"><span class="label-text text-xs uppercase font-bold text-base-content/50">余额扣除</span></label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40">¥</span>
+                                <input type="number" v-model.number="paymentBalance" @input="onBalanceInput"
+                                    :disabled="paymentMethod === 'cash'" class="input input-bordered w-full pl-7 font-mono" step="0.01"
+                                    min="0" />
+                            </div>
                         </div>
                         <div class="form-control">
-                            <label class="label"><span class="label-text">现金支付</span></label>
-                            <input type="number" v-model.number="paymentCash" @input="onCashInput"
-                                :disabled="paymentMethod === 'balance'" class="input input-bordered w-full" step="0.01"
-                                min="0" />
+                            <label class="label"><span class="label-text text-xs uppercase font-bold text-base-content/50">现金支付</span></label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40">¥</span>
+                                <input type="number" v-model.number="paymentCash" @input="onCashInput"
+                                    :disabled="paymentMethod === 'balance'" class="input input-bordered w-full pl-7 font-mono" step="0.01"
+                                    min="0" />
+                            </div>
                         </div>
                     </div>
 
-                    <div class="text-xs text-warning"
+                    <div class="alert alert-warning text-xs py-2 shadow-sm"
                         v-if="(currentPaymentAppt.member?.balance || currentPaymentAppt.member?.Balance || 0) < (currentPaymentAppt.actual_price || currentPaymentAppt.ActualPrice) && paymentMethod === 'balance'">
-                        警告：余额不足以全额支付
+                        <AlertCircle class="w-4 h-4" />
+                        <span>余额不足以全额支付，请选择组合支付或现金支付</span>
                     </div>
                 </div>
                 <div class="modal-action">
-                    <button class="btn" @click="showPaymentModal = false">取消</button>
+                    <button class="btn" @click="closePaymentModal">取消</button>
                     <button class="btn btn-primary" @click="confirmPayment">确认支付</button>
                 </div>
             </div>
-        </div>
+            <form method="dialog" class="modal-backdrop">
+                <button @click="closePaymentModal">close</button>
+            </form>
+        </dialog>
     </div>
 </template>

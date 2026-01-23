@@ -3,10 +3,11 @@ import { ref, onMounted } from 'vue';
 import { getMembers, createMember } from '../api/members';
 import Avatar from '../components/Avatar.vue';
 import MemberLevel from '../components/MemberLevel.vue';
+import { Plus, X, UserPlus, Users } from 'lucide-vue-next';
 
 const members = ref([]);
 const loading = ref(true);
-const showModal = ref(false);
+const createModalRef = ref(null);
 const submitting = ref(false);
 const formData = ref({
   name: '',
@@ -28,6 +29,15 @@ const fetchMembers = async () => {
 
 onMounted(fetchMembers);
 
+const openCreateModal = () => {
+  formData.value = { name: '', phone: '', invitation_code: '' };
+  createModalRef.value?.showModal();
+};
+
+const closeCreateModal = () => {
+  createModalRef.value?.close();
+};
+
 const handleCreateMember = async () => {
   submitting.value = true;
   try {
@@ -36,7 +46,7 @@ const handleCreateMember = async () => {
       phone: formData.value.phone,
       invitation_code: formData.value.invitation_code || undefined
     });
-    showModal.value = false;
+    closeCreateModal();
     formData.value = { name: '', phone: '', invitation_code: '' };
     await fetchMembers();
     alert('会员注册成功');
@@ -87,29 +97,26 @@ const getAvatarTextColor = (memberId) => {
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto">
+  <div>
     <!-- Header Section -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
       <div>
-        <h1 class="text-3xl font-bold tracking-tight text-base-content">会员管理</h1>
-        <p class="mt-2 text-base-content/60">
+        <h1 class="text-2xl font-bold tracking-tight text-base-content">会员管理</h1>
+        <p class="mt-1 text-base-content/60">
           查看会员列表、等级及消费记录，管理客户关系。
         </p>
       </div>
-      <button @click="showModal = true" class="btn btn-primary btn-sm">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-          class="w-4 h-4 mr-2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
+      <button @click="openCreateModal" class="btn btn-primary">
+        <Plus class="w-4 h-4 mr-1" />
         注册会员
       </button>
     </div>
 
     <!-- Members Table -->
-    <div class="bg-base-100 rounded-box border border-base-200 shadow-sm overflow-hidden">
+    <div class="bg-base-100 rounded-xl border border-base-300 shadow-sm overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="table table-zebra w-full">
-          <thead class="bg-base-200 text-base-content/70 uppercase text-xs">
+        <table class="table w-full">
+          <thead class="bg-base-200/50 text-base-content/60 uppercase text-xs">
             <tr>
               <th class="px-6 py-3 font-medium">ID</th>
               <th class="px-6 py-3 font-medium">姓名</th>
@@ -122,16 +129,24 @@ const getAvatarTextColor = (memberId) => {
               <th class="px-6 py-3 font-medium text-right">操作</th>
             </tr>
           </thead>
-          <tbody class="text-sm">
+          <tbody class="text-sm divide-y divide-base-200">
             <tr v-if="loading">
-              <td colspan="8" class="px-6 py-12 text-center">
-                <span class="loading loading-spinner loading-lg text-base-content/30"></span>
+              <td colspan="9" class="px-6 py-12 text-center">
+                <span class="loading loading-spinner loading-lg text-primary"></span>
               </td>
             </tr>
             <tr v-else-if="members.length === 0">
-              <td colspan="8" class="px-6 py-12 text-center text-base-content/50">暂无会员数据</td>
+              <td colspan="9" class="px-6 py-16 text-center">
+                <div class="flex flex-col items-center justify-center">
+                    <div class="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mb-4">
+                        <Users class="w-8 h-8 text-base-content/40" />
+                    </div>
+                    <h3 class="text-lg font-bold text-base-content">暂无会员数据</h3>
+                    <p class="text-base-content/60 mt-1">点击右上角按钮注册新会员</p>
+                </div>
+              </td>
             </tr>
-            <tr v-else v-for="member in members" :key="member.id" class="hover:bg-base-200/50 transition-colors">
+            <tr v-else v-for="member in members" :key="member.id" class="hover:bg-base-50/50 transition-colors">
               <td class="px-6 py-4 text-base-content/50 font-mono text-xs">#{{ member.id }}</td>
               <td class="px-6 py-4 font-medium text-base-content">
                 <div class="flex items-center gap-3">
@@ -139,19 +154,19 @@ const getAvatarTextColor = (memberId) => {
                   {{ member.name }}
                 </div>
               </td>
-              <td class="px-6 py-4 text-base-content/80">{{ member.phone }}</td>
+              <td class="px-6 py-4 text-base-content/80 font-mono">{{ member.phone }}</td>
               <td class="px-6 py-4">
                 <MemberLevel :level="member.level || member.Level" />
               </td>
               <td class="px-6 py-4 font-mono text-base-content">¥{{ member.yearly_total_consumption ||
                 member.YearlyTotalConsumption || 0 }}</td>
-              <td class="px-6 py-4 font-mono text-success">¥{{ member.balance || member.Balance || 0 }}</td>
+              <td class="px-6 py-4 font-mono text-success font-medium">¥{{ member.balance || member.Balance || 0 }}</td>
               <td class="px-6 py-4">
                 <code class="badge badge-neutral badge-outline font-mono text-xs">
                   {{ member.invitation_code || member.InvitationCode }}
                 </code>
               </td>
-              <td class="px-6 py-4 text-base-content/50">{{ member.referrer_id || member.ReferrerID || '-' }}</td>
+              <td class="px-6 py-4 text-base-content/50 font-mono text-xs">{{ member.referrer_id || member.ReferrerID || '-' }}</td>
               <td class="px-6 py-4 text-right">
                 <button class="btn btn-ghost btn-xs">详情</button>
               </td>
@@ -159,19 +174,24 @@ const getAvatarTextColor = (memberId) => {
           </tbody>
         </table>
       </div>
+      <!-- Pagination or count could go here -->
+      <div class="bg-base-50 px-6 py-3 border-t border-base-200 text-xs text-base-content/60 flex justify-between items-center"
+          v-if="members.length > 0">
+          <span>共 {{ members.length }} 位会员</span>
+      </div>
     </div>
 
     <!-- Create Modal -->
-    <dialog class="modal" :class="{ 'modal-open': showModal }">
-      <div class="modal-box bg-base-100 border border-base-200 shadow-2xl rounded-box p-0 overflow-hidden max-w-md">
+    <dialog ref="createModalRef" class="modal">
+      <div class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-md">
         <!-- Modal Header -->
-        <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/30">
-          <h3 class="font-semibold text-lg text-base-content">注册新会员</h3>
-          <button @click="showModal = false" class="btn btn-ghost btn-sm btn-circle">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
-              stroke="currentColor" class="w-5 h-5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+        <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
+          <h3 class="font-semibold text-lg text-base-content flex items-center gap-2">
+            <UserPlus class="w-5 h-5 text-primary" />
+            注册新会员
+          </h3>
+          <button @click="closeCreateModal" class="btn btn-ghost btn-sm btn-square text-base-content/60">
+            <X class="w-5 h-5" />
           </button>
         </div>
 
@@ -182,7 +202,7 @@ const getAvatarTextColor = (memberId) => {
               <label class="label">
                 <span class="label-text font-medium">姓名</span>
               </label>
-              <input type="text" v-model="formData.name" placeholder="请输入会员姓名" class="input input-bordered w-full"
+              <input type="text" v-model="formData.name" placeholder="请输入会员姓名" class="input input-bordered w-full bg-base-100"
                 required />
             </div>
 
@@ -190,7 +210,7 @@ const getAvatarTextColor = (memberId) => {
               <label class="label">
                 <span class="label-text font-medium">手机号</span>
               </label>
-              <input type="tel" v-model="formData.phone" placeholder="请输入手机号" class="input input-bordered w-full"
+              <input type="tel" v-model="formData.phone" placeholder="请输入手机号" class="input input-bordered w-full bg-base-100"
                 required />
             </div>
 
@@ -201,7 +221,7 @@ const getAvatarTextColor = (memberId) => {
                 </span>
               </label>
               <input type="text" v-model="formData.invitation_code" placeholder="如有推荐人请填写"
-                class="input input-bordered w-full" />
+                class="input input-bordered w-full bg-base-100" />
             </div>
 
             <div class="pt-2">
@@ -214,7 +234,7 @@ const getAvatarTextColor = (memberId) => {
         </div>
       </div>
       <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
-        <button @click="showModal = false">close</button>
+        <button @click="closeCreateModal">close</button>
       </form>
     </dialog>
   </div>

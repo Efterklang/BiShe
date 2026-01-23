@@ -11,6 +11,21 @@ import { getAppointments } from "../api/appointments";
 import TechnicianSchedule from "../components/TechnicianSchedule.vue";
 import Avatar from "../components/Avatar.vue";
 import { usePermission } from "../composables/usePermission";
+import { 
+    Plus, 
+    Users, 
+    Star, 
+    X, 
+    Calendar, 
+    Clock, 
+    Banknote, 
+    ChevronLeft, 
+    ChevronRight,
+    UserPlus,
+    User,
+    CheckCircle2,
+    Briefcase
+} from 'lucide-vue-next';
 import "cally";
 
 const { canManageTechnicians } = usePermission();
@@ -18,16 +33,19 @@ const { canManageTechnicians } = usePermission();
 const activeTab = ref("overview");
 const technicians = ref([]);
 const loading = ref(true);
-const showModal = ref(false);
+
+// Modals refs
+const createModalRef = ref(null);
+const skillsModalRef = ref(null);
+const appointmentModalRef = ref(null);
+
 const submitting = ref(false);
 const editingId = ref(null);
 
 // Service list for skills selection
 const services = ref([]);
-const showSkillsModal = ref(false); // 控制技能选择弹窗
 
 // Appointment Modal
-const showAppointmentModal = ref(false);
 const appointmentModalLoading = ref(false);
 const selectedAppointmentTech = ref(null);
 const selectedAppointmentDate = ref(new Date().toISOString().split('T')[0]);
@@ -68,8 +86,12 @@ onMounted(fetchTechnicians);
 const openCreateModal = () => {
     editingId.value = null;
     formData.value = { name: "", skills: [], status: 0 };
-    showModal.value = true;
+    createModalRef.value?.showModal();
     fetchServices();
+};
+
+const closeCreateModal = () => {
+    createModalRef.value?.close();
 };
 
 const handleEdit = (tech) => {
@@ -103,15 +125,19 @@ const handleEdit = (tech) => {
         skills: skillsArray, // Array of IDs
         status: tech.status,
     };
-    showModal.value = true;
+    createModalRef.value?.showModal();
     fetchServices();
 };
 
 const handleSchedule = (tech) => {
     selectedAppointmentTech.value = tech;
     selectedAppointmentDate.value = new Date().toISOString().split('T')[0];
-    showAppointmentModal.value = true;
+    appointmentModalRef.value?.showModal();
     fetchTechnicianAppointments();
+};
+
+const closeAppointmentModal = () => {
+    appointmentModalRef.value?.close();
 };
 
 const fetchTechnicianAppointments = async () => {
@@ -189,7 +215,7 @@ const handleSubmit = async () => {
             await createTechnician(payload);
         }
 
-        showModal.value = false;
+        closeCreateModal();
         await fetchTechnicians();
     } catch (error) {
         alert(
@@ -215,8 +241,6 @@ const getStatusInfo = (status) => {
     }
 };
 
-
-
 // Toggle skill selection
 const toggleSkill = (serviceId) => {
     const index = formData.value.skills.indexOf(serviceId);
@@ -237,26 +261,31 @@ const getSkillName = (serviceId) => {
     const service = services.value.find(s => s.id === serviceId);
     return service ? service.name : '未知服务';
 };
+
+const openSkillsModal = () => {
+    skillsModalRef.value?.showModal();
+};
+
+const closeSkillsModal = () => {
+    skillsModalRef.value?.close();
+};
 </script>
 
 <template>
-    <div class="max-w-7xl mx-auto">
+    <div>
         <!-- Header Section -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
             <div>
-                <h1 class="text-3xl font-bold tracking-tight text-base-content">
+                <h1 class="text-2xl font-bold tracking-tight text-base-content">
                     技师管理
                 </h1>
-                <p class="mt-2 text-base-content/60">
+                <p class="mt-1 text-base-content/60">
                     管理店内技师团队，查看实时状态与技能分布。
                 </p>
             </div>
             <button v-if="activeTab === 'overview' && canManageTechnicians" @click="openCreateModal"
-                class="btn btn-neutral">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
-                    stroke="currentColor" class="w-4 h-4 mr-2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
+                class="btn btn-primary">
+                <Plus class="w-4 h-4 mr-1" />
                 添加技师
             </button>
         </div>
@@ -278,13 +307,9 @@ const getSkillName = (serviceId) => {
 
             <!-- Empty State -->
             <div v-else-if="technicians.length === 0"
-                class="flex flex-col items-center justify-center py-20 border border-dashed border-base-300 rounded-xl bg-base-200/50">
+                class="flex flex-col items-center justify-center py-20 border border-dashed border-base-300 rounded-xl bg-base-200/50 text-center">
                 <div class="p-4 bg-base-300 rounded-full mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                        stroke="currentColor" class="w-8 h-8 text-base-content/40">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                    </svg>
+                    <Users class="w-8 h-8 text-base-content/40" />
                 </div>
                 <h3 class="text-lg font-medium text-base-content">暂无技师</h3>
                 <p class="text-base-content/60 mt-1">
@@ -295,7 +320,7 @@ const getSkillName = (serviceId) => {
             <!-- Technicians Grid -->
             <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 <div v-for="tech in technicians" :key="tech.id"
-                    class="group relative flex flex-col bg-base-100 border border-base-300 rounded-xl p-6 hover:border-base-content/20 transition-all duration-200 hover:shadow-sm">
+                    class="group relative flex flex-col bg-base-100 border border-base-300 rounded-xl p-6 hover:border-primary/50 transition-all duration-200 hover:shadow-sm">
                     <!-- Status Badge -->
                     <div class="absolute top-4 right-4">
                         <span class="badge badge-sm" :class="getStatusInfo(tech.status).class">
@@ -314,12 +339,7 @@ const getSkillName = (serviceId) => {
 
                         <!-- Rating -->
                         <div class="flex items-center gap-1 mt-1 text-warning text-sm font-medium">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                                class="w-4 h-4">
-                                <path fill-rule="evenodd"
-                                    d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
-                                    clip-rule="evenodd" />
-                            </svg>
+                            <Star class="w-4 h-4 fill-current" />
                             <span>{{
                                 tech.average_rating || tech.AverageRating || 5.0
                                 }}</span>
@@ -337,16 +357,20 @@ const getSkillName = (serviceId) => {
 
                     <!-- Actions -->
                     <div class="mt-6 pt-4 border-t border-base-200 flex gap-2">
-                        <button @click="handleSchedule(tech)" class="btn btn-outline">
+                        <button @click="handleSchedule(tech)" class="btn btn-outline flex-1 btn-sm">
                             查看预约
                         </button>
-                        <button v-if="canManageTechnicians" @click="handleEdit(tech)" class="btn btn-outline">
-                            编辑
-                        </button>
-                        <button v-if="canManageTechnicians" @click="handleDelete(tech)"
-                            class="btn btn-error btn-outline">
-                            删除
-                        </button>
+                        <div class="dropdown dropdown-top dropdown-end">
+                            <div tabindex="0" role="button" class="btn btn-square btn-outline btn-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                                </svg>
+                            </div>
+                            <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-32 border border-base-200">
+                                <li v-if="canManageTechnicians"><a @click="handleEdit(tech)">编辑</a></li>
+                                <li v-if="canManageTechnicians"><a @click="handleDelete(tech)" class="text-error">删除</a></li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -357,19 +381,18 @@ const getSkillName = (serviceId) => {
         </div>
 
         <!-- Create/Edit Modal -->
-        <dialog class="modal" :class="{ 'modal-open': showModal }">
+        <dialog ref="createModalRef" class="modal">
             <div
                 class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-md">
                 <!-- Modal Header -->
                 <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
-                    <h3 class="font-semibold text-lg text-base-content">
+                    <h3 class="font-semibold text-lg text-base-content flex items-center gap-2">
+                        <UserPlus v-if="!editingId" class="w-5 h-5 text-primary" />
+                        <User v-else class="w-5 h-5 text-primary" />
                         {{ editingId ? "编辑技师" : "添加新技师" }}
                     </h3>
-                    <button @click="showModal = false; showSkillsModal = false" class="btn btn-ghost btn-sm btn-square text-base-content/60">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
-                            stroke="currentColor" class="w-5 h-5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                    <button @click="closeCreateModal" class="btn btn-ghost btn-sm btn-square text-base-content/60">
+                        <X class="w-5 h-5" />
                     </button>
                 </div>
 
@@ -403,10 +426,8 @@ const getSkillName = (serviceId) => {
                             </div>
 
                             <!-- Add Skills Button -->
-                            <button type="button" @click="showSkillsModal = true" class="btn btn-outline w-full">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                </svg>
+                            <button type="button" @click="openSkillsModal" class="btn btn-outline w-full">
+                                <Plus class="w-4 h-4" />
                                 选择技能
                                 <span class="text-xs text-base-content/60 ml-2" v-if="formData.skills.length > 0">
                                     (已选 {{ formData.skills.length }} 项)
@@ -430,7 +451,7 @@ const getSkillName = (serviceId) => {
                         </div>
 
                         <div class="pt-2">
-                            <button type="submit" class="btn btn-neutral w-full" :disabled="submitting">
+                            <button type="submit" class="btn btn-primary w-full" :disabled="submitting">
                                 <span v-if="submitting" class="loading loading-spinner loading-xs mr-2"></span>
                                 {{
                                     submitting
@@ -445,28 +466,26 @@ const getSkillName = (serviceId) => {
                 </div>
             </div>
             <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
-                <button @click="showModal = false; showSkillsModal = false">close</button>
+                <button @click="closeCreateModal">close</button>
             </form>
         </dialog>
 
         <!-- Skills Selection Modal -->
-        <dialog class="modal" :class="{ 'modal-open': showSkillsModal }">
+        <dialog ref="skillsModalRef" class="modal">
             <div class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-4xl">
                 <!-- Modal Header -->
                 <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
                     <div>
-                        <h3 class="font-semibold text-lg text-base-content">
+                        <h3 class="font-semibold text-lg text-base-content flex items-center gap-2">
+                            <Briefcase class="w-5 h-5 text-primary" />
                             选择技师技能
                         </h3>
                         <p class="text-sm text-base-content/60 mt-1">
                             已选择 {{ formData.skills.length }} 项服务
                         </p>
                     </div>
-                    <button @click="showSkillsModal = false" class="btn btn-ghost btn-sm btn-square text-base-content/60">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
-                            stroke="currentColor" class="w-5 h-5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                    <button @click="closeSkillsModal" class="btn btn-ghost btn-sm btn-square text-base-content/60">
+                        <X class="w-5 h-5" />
                     </button>
                 </div>
 
@@ -474,11 +493,7 @@ const getSkillName = (serviceId) => {
                 <div class="p-6">
                     <!-- Empty State -->
                     <div v-if="services.length === 0" class="text-center py-12 text-base-content/60">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                            stroke="currentColor" class="w-16 h-16 mx-auto mb-4 opacity-30">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                        </svg>
+                        <Briefcase class="w-16 h-16 mx-auto mb-4 opacity-30" />
                         <p class="text-lg font-medium">暂无服务项目</p>
                         <p class="text-sm mt-1">请先在"服务管理"中添加服务项目</p>
                     </div>
@@ -494,12 +509,12 @@ const getSkillName = (serviceId) => {
                                     <input type="checkbox"
                                            :checked="isSkillSelected(service.id)"
                                            @click.stop="toggleSkill(service.id)"
-                                           class="checkbox checkbox-primary mt-1" />
+                                           class="checkbox checkbox-primary mt-1 checkbox-sm" />
                                     <div class="flex-1">
-                                        <div class="font-semibold text-base-content">
+                                        <div class="font-semibold text-base-content text-sm">
                                             {{ service.name }}
                                         </div>
-                                        <div class="text-sm text-base-content/60 mt-1">
+                                        <div class="text-xs text-base-content/60 mt-1">
                                             ¥{{ service.price }} · {{ service.duration }}分钟
                                         </div>
                                     </div>
@@ -511,39 +526,37 @@ const getSkillName = (serviceId) => {
 
                 <!-- Modal Footer -->
                 <div class="modal-action px-6 py-4 border-t border-base-200 bg-base-200/30 flex justify-between">
-                    <button @click="showSkillsModal = false" class="btn btn-ghost">
+                    <button @click="closeSkillsModal" class="btn btn-ghost">
                         取消
                     </button>
-                    <button @click="showSkillsModal = false" class="btn btn-neutral">
+                    <button @click="closeSkillsModal" class="btn btn-primary">
                         确定 (已选 {{ formData.skills.length }} 项)
                     </button>
                 </div>
             </div>
             <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
-                <button @click="showSkillsModal = false">close</button>
+                <button @click="closeSkillsModal">close</button>
             </form>
         </dialog>
 
         <!-- Appointment Modal -->
-        <dialog class="modal" :class="{ 'modal-open': showAppointmentModal }">
+        <dialog ref="appointmentModalRef" class="modal">
             <div
                 class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-2xl">
                 <!-- Modal Header -->
                 <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
                     <div>
-                        <h3 class="font-semibold text-lg text-base-content">
+                        <h3 class="font-semibold text-lg text-base-content flex items-center gap-2">
+                            <Calendar class="w-5 h-5 text-primary" />
                             {{ selectedAppointmentTech?.name }} 的预约安排
                         </h3>
                         <p class="text-sm text-base-content/60 mt-1">
                             查看指定日期的预约情况
                         </p>
                     </div>
-                    <button @click="showAppointmentModal = false"
+                    <button @click="closeAppointmentModal"
                         class="btn btn-ghost btn-sm btn-square text-base-content/60">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
-                            stroke="currentColor" class="w-5 h-5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <X class="w-5 h-5" />
                     </button>
                 </div>
 
@@ -554,20 +567,16 @@ const getSkillName = (serviceId) => {
                         <label class="block text-sm font-medium text-base-content/80 mb-2">选择日期</label>
                         <div class="relative">
                             <input type="text" :value="formatDisplayDate(selectedAppointmentDate)" readonly
-                                class="input input-bordered w-full bg-base-100 cursor-pointer" placeholder="点击选择日期"
+                                class="input input-bordered w-full bg-base-100 cursor-pointer pl-10" placeholder="点击选择日期"
                                 @click="calendarOpen = !calendarOpen" />
+                            <Calendar class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
+                            
                             <calendar-date v-if="calendarOpen"
                                 class="cally absolute top-full mt-2 z-10 bg-base-100 border border-base-300 shadow-lg rounded-box"
                                 :value="selectedAppointmentDate" @select="handleDateSelect" @change="handleDateChange"
                                 locale="zh-CN">
-                                <svg aria-label="Previous" class="fill-current size-4" slot="previous"
-                                    xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                                    <path fill="currentColor" d="M15.75 19.5 8.25 12l7.5-7.5"></path>
-                                </svg>
-                                <svg aria-label="Next" class="fill-current size-4" slot="next"
-                                    xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                                    <path fill="currentColor" d="m8.25 4.5 7.5 7.5-7.5 7.5"></path>
-                                </svg>
+                                <ChevronLeft slot="previous" class="w-4 h-4" />
+                                <ChevronRight slot="next" class="w-4 h-4" />
                                 <calendar-month></calendar-month>
                             </calendar-date>
                         </div>
@@ -575,40 +584,31 @@ const getSkillName = (serviceId) => {
 
                     <!-- Loading State -->
                     <div v-if="appointmentModalLoading" class="flex justify-center py-12">
-                        <span class="loading loading-spinner loading-lg"></span>
+                        <span class="loading loading-spinner loading-lg text-primary"></span>
                     </div>
 
                     <!-- Appointments List -->
                     <div v-else>
                         <div v-if="technicianAppointments.length === 0" class="text-center py-12 text-base-content/60">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" class="w-16 h-16 mx-auto mb-4 opacity-30">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                            </svg>
+                            <Calendar class="w-16 h-16 mx-auto mb-4 opacity-30" />
                             <p class="text-lg font-medium">暂无预约</p>
                             <p class="text-sm mt-1">{{ selectedAppointmentDate }} 当天没有预约</p>
                         </div>
 
                         <div v-else class="space-y-4">
-                            <h4 class="font-semibold flex items-center gap-2 mb-4">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                                </svg>
+                            <h4 class="font-semibold flex items-center gap-2 mb-4 text-sm uppercase tracking-wider text-base-content/60">
                                 预约列表 ({{ technicianAppointments.length }})
                             </h4>
 
                             <div class="space-y-3 max-h-96 overflow-y-auto">
                                 <div v-for="appt in technicianAppointments" :key="appt.id"
-                                    class="p-4 border border-base-200 rounded-lg hover:border-primary/50 transition-colors">
+                                    class="p-4 border border-base-200 rounded-lg hover:border-primary/50 transition-colors bg-base-50/50">
                                     <div class="flex justify-between items-start mb-3">
                                         <div>
-                                            <div class="font-semibold text-base">
+                                            <div class="font-semibold text-base flex items-center gap-2">
                                                 {{ appt.member?.name || "未知客户" }}
                                             </div>
-                                            <div class="text-sm text-base-content/60">
+                                            <div class="text-sm text-base-content/60 mt-0.5">
                                                 {{ appt.service_item?.name || "未知服务" }}
                                             </div>
                                         </div>
@@ -628,21 +628,12 @@ const getSkillName = (serviceId) => {
                                     </div>
 
                                     <div class="flex items-center gap-4 text-sm text-base-content/70">
-                                        <div class="flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                                stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            {{ appt.start_time.substring(11, 16) }} - {{ appt.end_time.substring(11, 16)
-                                            }}
+                                        <div class="flex items-center gap-1.5">
+                                            <Clock class="w-3.5 h-3.5" />
+                                            {{ appt.start_time.substring(11, 16) }} - {{ appt.end_time.substring(11, 16) }}
                                         </div>
-                                        <div class="flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                                stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
+                                        <div class="flex items-center gap-1.5">
+                                            <Banknote class="w-3.5 h-3.5" />
                                             ¥{{ appt.actual_price }}
                                         </div>
                                     </div>
@@ -654,13 +645,13 @@ const getSkillName = (serviceId) => {
 
                 <!-- Modal Footer -->
                 <div class="modal-action px-6 py-4 border-t border-base-200 bg-base-200/30">
-                    <button @click="showAppointmentModal = false" class="btn btn-neutral">
+                    <button @click="closeAppointmentModal" class="btn btn-neutral">
                         关闭
                     </button>
                 </div>
             </div>
             <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
-                <button @click="showAppointmentModal = false">close</button>
+                <button @click="closeAppointmentModal">close</button>
             </form>
         </dialog>
     </div>

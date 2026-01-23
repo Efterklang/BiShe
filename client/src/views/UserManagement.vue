@@ -1,70 +1,95 @@
 <template>
-	<div class="container mx-auto p-6">
+	<div>
 		<div class="flex justify-between items-center mb-6">
-			<h1 class="text-3xl font-bold">用户管理</h1>
+			<div>
+				<h1 class="text-2xl font-bold tracking-tight">用户管理</h1>
+				<p class="text-base-content/60 mt-1">管理系统用户、角色分配与账号状态</p>
+			</div>
 			<button class="btn btn-primary" @click="openCreateModal">
-				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"
-					stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-				</svg>
+				<Plus class="w-4 h-4 mr-1" />
 				创建新用户
 			</button>
 		</div>
 
 		<!-- Users Table -->
-		<div class="card bg-base-100 shadow-xl">
-			<div class="card-body">
+		<div class="card bg-base-100 border border-base-300 shadow-sm rounded-xl overflow-hidden">
+			<div class="card-body p-0">
 				<div v-if="isLoading" class="flex justify-center py-12">
-					<span class="loading loading-spinner loading-lg"></span>
+					<span class="loading loading-spinner loading-lg text-primary"></span>
 				</div>
 
-				<div v-else-if="users.length === 0" class="text-center py-12">
-					<p class="text-base-content/60">暂无用户数据</p>
+				<div v-else-if="users.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
+					<div class="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mb-4">
+						<Users class="w-8 h-8 text-base-content/40" />
+					</div>
+					<h3 class="text-lg font-bold text-base-content">暂无用户数据</h3>
+					<p class="text-base-content/60 mt-1 max-w-sm">
+						当前系统中还没有任何用户。点击右上角的"创建新用户"按钮来添加。
+					</p>
 				</div>
 
 				<div v-else class="overflow-x-auto">
-					<table class="table table-zebra w-full">
-						<thead>
+					<table class="table w-full">
+						<thead class="bg-base-200/50 text-base-content/60 uppercase text-xs">
 							<tr>
-								<th>ID</th>
-								<th>用户名</th>
-								<th>角色</th>
-								<th>状态</th>
-								<th>创建时间</th>
+								<th class="font-medium">ID</th>
+								<th class="font-medium">用户名</th>
+								<th class="font-medium">角色</th>
+								<th class="font-medium">状态</th>
+								<th class="font-medium">创建时间</th>
 							</tr>
 						</thead>
-						<tbody>
-							<tr v-for="user in users" :key="user.id">
-								<td>{{ user.id }}</td>
-								<td class="font-medium">{{ user.username }}</td>
+						<tbody class="divide-y divide-base-200">
+							<tr v-for="user in users" :key="user.id" class="hover:bg-base-50/50 transition-colors">
+								<td class="font-mono text-xs opacity-60">#{{ user.id }}</td>
 								<td>
-									<div class="badge" :class="user.role === 'manager' ? 'badge-primary' : 'badge-secondary'
-										">
+									<div class="flex items-center gap-3">
+										<div class="avatar placeholder">
+											<div class="bg-neutral text-neutral-content rounded-full w-8 h-8">
+												<span class="text-xs">{{ user.username.charAt(0).toUpperCase() }}</span>
+											</div>
+										</div>
+										<span class="font-medium">{{ user.username }}</span>
+									</div>
+								</td>
+								<td>
+									<div class="badge gap-2"
+										:class="user.role === 'manager' ? 'badge-primary badge-outline' : 'badge-ghost'">
+										<ShieldCheck v-if="user.role === 'manager'" class="w-3 h-3" />
+										<User v-else class="w-3 h-3" />
 										{{ user.role === "manager" ? "店长" : "操作员" }}
 									</div>
 								</td>
 								<td>
-									<div class="badge" :class="user.is_active ? 'badge-success' : 'badge-error'">
+									<div class="badge gap-1.5"
+										:class="user.is_active ? 'badge-success/10 text-success' : 'badge-error/10 text-error'">
+										<span class="w-1.5 h-1.5 rounded-full"
+											:class="user.is_active ? 'bg-success' : 'bg-error'"></span>
 										{{ user.is_active ? "正常" : "已停用" }}
 									</div>
 								</td>
-								<td>{{ formatDate(user.created_at) }}</td>
+								<td class="text-base-content/60 text-sm font-mono">
+									{{ formatDate(user.created_at) }}
+								</td>
 							</tr>
 						</tbody>
 					</table>
 				</div>
-
-				<!-- Total Count -->
-				<div class="text-sm text-base-content/60 mt-4">
-					共 {{ users.length }} 个用户
-				</div>
+			</div>
+			<!-- Total Count Footer -->
+			<div class="bg-base-50 px-6 py-3 border-t border-base-200 text-xs text-base-content/60 flex justify-between items-center"
+				v-if="users.length > 0">
+				<span>共 {{ users.length }} 个用户</span>
 			</div>
 		</div>
 
 		<!-- Create User Modal -->
 		<dialog ref="createModalRef" class="modal">
 			<div class="modal-box">
-				<h3 class="font-bold text-lg mb-4">创建新用户</h3>
+				<h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+					<UserPlus class="w-5 h-5 text-primary" />
+					创建新用户
+				</h3>
 
 				<form @submit.prevent="handleCreateUser">
 					<!-- Username -->
@@ -72,12 +97,17 @@
 						<label class="label">
 							<span class="label-text">用户名</span>
 						</label>
-						<input v-model="newUser.username" type="text" placeholder="请输入用户名（3-64字符）"
-							class="input input-bordered" :class="{ 'input-error': formErrors.username }" required />
+						<div class="relative">
+							<input v-model="newUser.username" type="text" placeholder="请输入用户名（3-64字符）"
+								class="input input-bordered w-full pl-10" :class="{ 'input-error': formErrors.username }"
+								required />
+							<User class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
+						</div>
 						<label v-if="formErrors.username" class="label">
-							<span class="label-text-alt text-error">{{
-								formErrors.username
-							}}</span>
+							<span class="label-text-alt text-error flex items-center gap-1">
+								<AlertCircle class="w-3 h-3" />
+								{{ formErrors.username }}
+							</span>
 						</label>
 					</div>
 
@@ -86,12 +116,17 @@
 						<label class="label">
 							<span class="label-text">密码</span>
 						</label>
-						<input v-model="newUser.password" type="password" placeholder="至少8位，包含大小写字母和数字"
-							class="input input-bordered" :class="{ 'input-error': formErrors.password }" required />
+						<div class="relative">
+							<input v-model="newUser.password" type="password" placeholder="至少8位，包含大小写字母和数字"
+								class="input input-bordered w-full pl-10" :class="{ 'input-error': formErrors.password }"
+								required />
+							<Lock class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
+						</div>
 						<label v-if="formErrors.password" class="label">
-							<span class="label-text-alt text-error">{{
-								formErrors.password
-							}}</span>
+							<span class="label-text-alt text-error flex items-center gap-1">
+								<AlertCircle class="w-3 h-3" />
+								{{ formErrors.password }}
+							</span>
 						</label>
 					</div>
 
@@ -100,13 +135,17 @@
 						<label class="label">
 							<span class="label-text">确认密码</span>
 						</label>
-						<input v-model="newUser.confirmPassword" type="password" placeholder="请再次输入密码"
-							class="input input-bordered" :class="{ 'input-error': formErrors.confirmPassword }"
-							required />
+						<div class="relative">
+							<input v-model="newUser.confirmPassword" type="password" placeholder="请再次输入密码"
+								class="input input-bordered w-full pl-10"
+								:class="{ 'input-error': formErrors.confirmPassword }" required />
+							<Lock class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
+						</div>
 						<label v-if="formErrors.confirmPassword" class="label">
-							<span class="label-text-alt text-error">{{
-								formErrors.confirmPassword
-							}}</span>
+							<span class="label-text-alt text-error flex items-center gap-1">
+								<AlertCircle class="w-3 h-3" />
+								{{ formErrors.confirmPassword }}
+							</span>
 						</label>
 					</div>
 
@@ -115,20 +154,19 @@
 						<label class="label">
 							<span class="label-text">角色</span>
 						</label>
-						<select v-model="newUser.role" class="select select-bordered" required>
-							<option value="operator">操作员</option>
-							<option value="manager">店长</option>
-						</select>
+						<div class="relative">
+							<select v-model="newUser.role" class="select select-bordered w-full pl-10" required>
+								<option value="operator">操作员</option>
+								<option value="manager">店长</option>
+							</select>
+							<Shield class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
+						</div>
 					</div>
 
 					<!-- Error Alert -->
-					<div v-if="createError" class="alert alert-error mt-4">
-						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none"
-							viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-						</svg>
-						<span>{{ createError }}</span>
+					<div v-if="createError" class="alert alert-error mt-6 shadow-sm">
+						<AlertCircle class="stroke-current shrink-0 h-5 w-5" />
+						<span class="text-sm">{{ createError }}</span>
 					</div>
 
 					<!-- Modal Actions -->
@@ -154,6 +192,16 @@
 <script setup>
 import { ref, reactive, onMounted } from "vue";
 import { getUserList, register } from "../api/auth";
+import {
+	Plus,
+	Users,
+	Shield,
+	ShieldCheck,
+	User,
+	UserPlus,
+	Lock,
+	AlertCircle
+} from 'lucide-vue-next';
 
 const users = ref([]);
 const isLoading = ref(false);

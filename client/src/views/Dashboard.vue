@@ -7,7 +7,9 @@ import {
     UserPlus,
     Activity,
     AlertCircle,
-    Trophy
+    Trophy,
+    Package,
+    LayoutList
 } from 'lucide-vue-next';
 
 import Avatar from "../components/Avatar.vue";
@@ -240,8 +242,9 @@ const formatDateLabel = computed(() => {
                         <span class="loading loading-spinner loading-lg"></span>
                     </div>
                     <div v-else-if="serviceRanking.length === 0"
-                        class="flex items-center justify-center py-12 text-base-content/40">
-                        暂无数据
+                        class="flex flex-col items-center justify-center py-12 text-base-content/60 gap-3">
+                        <LayoutList class="w-10 h-10 text-base-content/20" />
+                        <p>暂无热门项目数据</p>
                     </div>
                     <div v-else class="space-y-6">
                         <div v-for="(service, index) in serviceRanking.slice(0, 5)" :key="service.service_id"
@@ -304,8 +307,9 @@ const formatDateLabel = computed(() => {
 
                         <!-- 热销商品排行 -->
                         <div v-if="productSales.topProducts.length === 0"
-                            class="flex items-center justify-center py-8 text-base-content/40">
-                            暂无商品销售数据
+                            class="flex flex-col items-center justify-center py-8 text-base-content/60 gap-3">
+                            <Package class="w-10 h-10 text-base-content/20" />
+                            <p>暂无商品销售数据</p>
                         </div>
                         <div v-else class="space-y-4">
                             <div v-for="(product, index) in productSales.topProducts" :key="product.product_id"
@@ -346,13 +350,13 @@ const formatDateLabel = computed(() => {
                 </div>
                 <div class="overflow-x-auto">
                     <table class="table w-full">
-                        <thead class="bg-base-200 text-base-content/60 uppercase text-xs">
+                        <thead class="bg-base-200/50 text-base-content/60 uppercase text-xs">
                             <tr>
-                                <th class="px-6 py-3 font-medium">排名</th>
-                                <th class="px-6 py-3 font-medium">会员姓名</th>
-                                <th class="px-6 py-3 font-medium">邀请人数</th>
-                                <th class="px-6 py-3 font-medium">累计佣金</th>
-                                <th class="px-6 py-3 font-medium">等级</th>
+                                <th class="px-6 py-4 font-semibold">排名</th>
+                                <th class="px-6 py-4 font-semibold">会员姓名</th>
+                                <th class="px-6 py-4 font-semibold">邀请人数</th>
+                                <th class="px-6 py-4 font-semibold">累计佣金</th>
+                                <th class="px-6 py-4 font-semibold">等级</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-base-200">
@@ -390,7 +394,10 @@ const formatDateLabel = computed(() => {
                             </tr>
                             <tr v-if="fissionRanking.length === 0">
                                 <td colspan="5" class="px-6 py-12 text-center text-base-content/60">
-                                    暂无数据
+                                    <div class="flex flex-col items-center justify-center gap-3">
+                                        <Trophy class="w-10 h-10 text-base-content/20" />
+                                        <p>暂无裂变排行数据</p>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
