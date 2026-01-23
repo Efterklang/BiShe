@@ -3,8 +3,8 @@ import { onMounted, ref } from "vue";
 const THEME_KEY = "spa-admin-theme-preference";
 
 export function useTheme() {
-	// 'latte' is light, 'mocha' is dark in our catppuccin config
-	const lightTheme = "latte";
+	// 'nord' is light, 'mocha' is dark
+	const lightTheme = "nord";
 	const darkTheme = "mocha";
 
 	// Current active theme (applied to DOM)
