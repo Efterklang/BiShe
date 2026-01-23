@@ -84,10 +84,10 @@
 		<div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 			<div v-for="product in products" :key="product.id"
 				class="card bg-base-100 border border-base-300 hover:border-primary/50 transition-all duration-200 shadow-sm hover:shadow-md">
-				<figure class="px-6 pt-6">
+				<figure>
 					<div class="w-full h-48 bg-base-200 rounded-xl flex items-center justify-center">
 						<img v-if="product.image_url" :src="product.image_url" :alt="product.name"
-							class="w-full h-full object-cover rounded-xl" />
+							class="w-full h-full object-cover" />
 						<svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1"
 							stroke="currentColor" class="w-16 h-16 text-base-content/20">
 							<path stroke-linecap="round" stroke-linejoin="round"

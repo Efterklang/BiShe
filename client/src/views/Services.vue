@@ -140,11 +140,11 @@ const handleSubmit = async () => {
         <!-- Services Grid -->
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div v-for="service in services" :key="service.id"
-                class="group relative flex flex-col bg-base-100 border border-base-300 rounded-xl overflow-hidden hover:border-base-content/20 transition-all duration-200 hover:shadow-sm">
-                <figure class="px-6 pt-6">
+                class="group relative flex flex-col bg-base-100 border border-base-300 rounded-xl overflow-hidden">
+                <figure>
                     <div class="w-full h-40 bg-base-200 rounded-xl flex items-center justify-center">
                         <img v-if="service.image_url" :src="service.image_url" :alt="service.name"
-                            class="w-full h-full object-cover rounded-xl" />
+                            class="w-full h-full object-cover" />
                         <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1"
                             stroke="currentColor" class="w-16 h-16 text-base-content/20">
                             <path stroke-linecap="round" stroke-linejoin="round"
@@ -152,67 +152,65 @@ const handleSubmit = async () => {
                         </svg>
                     </div>
                 </figure>
-                <div class="p-6 flex flex-col flex-grow">
+                <div class="p-6 flex flex-col grow">
                     <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h3 class="text-lg font-semibold text-base-content group-hover:text-primary transition-colors">
-                            {{ service.name }}
-                        </h3>
-                        <div class="flex items-center gap-2 mt-1 text-sm text-base-content/60">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" class="w-4 h-4">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>{{ service.duration }} 分钟</span>
+                        <div>
+                            <h3> {{ service.name }} </h3>
+                            <div class="flex items-center gap-2 mt-1 text-sm text-base-content/60">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>{{ service.duration }} 分钟</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="block text-xl font-bold text-base-content">¥{{ service.price }}</span>
                         </div>
                     </div>
-                    <div class="text-right">
-                        <span class="block text-xl font-bold text-base-content">¥{{ service.price }}</span>
-                    </div>
-                </div>
 
-                <div class="mt-auto pt-4 border-t border-base-200 flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <span class="relative flex h-2.5 w-2.5">
-                            <span v-if="service.is_active || service.IsActive"
-                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2.5 w-2.5" :class="service.is_active || service.IsActive
+                    <div class="mt-auto pt-4 border-t border-base-200 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="relative flex h-2.5 w-2.5">
+                                <span v-if="service.is_active || service.IsActive"
+                                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2.5 w-2.5" :class="service.is_active || service.IsActive
                                     ? 'bg-success'
                                     : 'bg-base-300'
-                                "></span>
-                        </span>
-                        <span class="text-xs font-medium" :class="service.is_active || service.IsActive
+                                    "></span>
+                            </span>
+                            <span class="text-xs font-medium" :class="service.is_active || service.IsActive
                                 ? 'text-success'
                                 : 'text-base-content/60'
-                            ">
-                            {{
-                                service.is_active || service.IsActive
-                                    ? "上架中"
-                                    : "已下架"
-                            }}
-                        </span>
-                    </div>
+                                ">
+                                {{
+                                    service.is_active || service.IsActive
+                                        ? "上架中"
+                                        : "已下架"
+                                }}
+                            </span>
+                        </div>
 
-                    <div v-if="canManageServices" class="flex gap-2">
-                        <button @click="handleEdit(service)"
-                            class="btn btn-ghost btn-sm btn-square text-base-content/60 hover:text-base-content">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" class="w-4 h-4">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                            </svg>
-                        </button>
-                        <button @click="handleDelete(service.id)"
-                            class="btn btn-ghost btn-sm btn-square text-base-content/60 hover:text-error hover:bg-error/10">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" class="w-4 h-4">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                            </svg>
-                        </button>
+                        <div v-if="canManageServices" class="flex gap-2">
+                            <button @click="handleEdit(service)"
+                                class="btn btn-ghost btn-sm btn-square text-base-content/60 hover:text-base-content">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                </svg>
+                            </button>
+                            <button @click="handleDelete(service.id)"
+                                class="btn btn-ghost btn-sm btn-square text-base-content/60 hover:text-error hover:bg-error/10">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
-                </div>
                 </div>
             </div>
         </div>

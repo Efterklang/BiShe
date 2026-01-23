@@ -255,105 +255,103 @@ const showDetails = (appt) => {
         </div>
 
         <!-- Appointments Table -->
-        <div class="bg-base-100 rounded-box border border-base-200 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>会员</th>
-                            <th>技师</th>
-                            <th>服务项目</th>
-                            <th>时间段</th>
-                            <th>状态</th>
-                            <th>价格</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="loading">
-                            <td colspan="8" class="px-6 py-12 text-center">
-                                <span class="loading loading-spinner loading-lg text-base-content/30"></span>
-                            </td>
-                        </tr>
-                        <tr v-else-if="appointments.length === 0">
-                            <td colspan="8" class="px-6 py-12 text-center text-base-content/50">
-                                暂无预约记录
-                            </td>
-                        </tr>
-                        <tr v-else v-for="appt in appointments" :key="appt.id"
-                            class="hover:bg-base-200/50 transition-colors">
-                            <td class="px-6 py-4 text-base-content/50 font-mono text-xs">
-                                #{{ appt.id }}
-                            </td>
-                            <td class="font-medium text-base-content">
-                                {{ getMemberName(appt.member) }}
-                            </td>
-                            <td>
-                                <div class="flex items-center gap-2">
-                                    <Avatar :name="getTechName(appt.technician)" size="xs" />
-                                    <span class="text-base-content/80">{{
-                                        getTechName(appt.technician)
-                                    }}</span>
-                                </div>
-                            </td>
-                            <td>
-                                {{ getServiceName(appt.service_item) }}
-                            </td>
-                            <td class="px-6 py-4 text-base-content/60 text-xs">
-                                <div>
-                                    {{
-                                        formatDate(
-                                            appt.start_time || appt.StartTime,
-                                        )
-                                    }}
-                                </div>
-                                <div class="text-base-content/40 mt-0.5">
-                                    至
-                                    {{
-                                        formatDate(
-                                            appt.end_time || appt.EndTime,
-                                        ).split(" ")[1]
-                                    }}
-                                </div>
-                            </td>
-                            <td>
-                                <span :class="getStatusBadge(
-                                    appt.status || appt.Status,
-                                )
-                                    ">
-                                    {{
-                                        getStatusText(
-                                            appt.status || appt.Status,
-                                        )
-                                    }}
-                                </span>
-                            </td>
-                            <td>
-                                ¥{{ appt.actual_price || appt.ActualPrice }}
-                            </td>
-                            <td>
-                                <button @click="showDetails(appt)" class="btn btn-ghost btn-xs">
-                                    详情
-                                </button>
-                                <button v-if="
-                                    (appt.status || appt.Status) ===
-                                    'pending'
-                                " @click="handleComplete(appt)" class="btn btn-success btn-outline btn-xs">
-                                    完成
-                                </button>
-                                <button v-if="
-                                    ['pending', 'waiting'].includes(
+        <div class="card">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>会员</th>
+                        <th>技师</th>
+                        <th>服务项目</th>
+                        <th>时间段</th>
+                        <th>状态</th>
+                        <th>价格</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="loading">
+                        <td colspan="8" class="px-6 py-12 text-center">
+                            <span class="loading loading-spinner loading-lg text-base-content/30"></span>
+                        </td>
+                    </tr>
+                    <tr v-else-if="appointments.length === 0">
+                        <td colspan="8" class="px-6 py-12 text-center text-base-content/50">
+                            暂无预约记录
+                        </td>
+                    </tr>
+                    <tr v-else v-for="appt in appointments" :key="appt.id"
+                        class="hover:bg-base-200/50 transition-colors">
+                        <td class="px-6 py-4 text-base-content/50 font-mono text-xs">
+                            #{{ appt.id }}
+                        </td>
+                        <td class="font-medium text-base-content">
+                            {{ getMemberName(appt.member) }}
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <Avatar :name="getTechName(appt.technician)" size="xs" />
+                                <span class="text-base-content/80">{{
+                                    getTechName(appt.technician)
+                                }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            {{ getServiceName(appt.service_item) }}
+                        </td>
+                        <td class="px-6 py-4 text-base-content/60 text-xs">
+                            <div>
+                                {{
+                                    formatDate(
+                                        appt.start_time || appt.StartTime,
+                                    )
+                                }}
+                            </div>
+                            <div class="text-base-content/40 mt-0.5">
+                                至
+                                {{
+                                    formatDate(
+                                        appt.end_time || appt.EndTime,
+                                    ).split(" ")[1]
+                                }}
+                            </div>
+                        </td>
+                        <td>
+                            <span :class="getStatusBadge(
+                                appt.status || appt.Status,
+                            )
+                                ">
+                                {{
+                                    getStatusText(
                                         appt.status || appt.Status,
                                     )
-                                " @click="handleCancel(appt.id)" class="btn btn-error btn-outline btn-xs">
-                                    取消
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                                }}
+                            </span>
+                        </td>
+                        <td>
+                            ¥{{ appt.actual_price || appt.ActualPrice }}
+                        </td>
+                        <td>
+                            <button @click="showDetails(appt)" class="btn btn-ghost btn-xs">
+                                详情
+                            </button>
+                            <button v-if="
+                                (appt.status || appt.Status) ===
+                                'pending'
+                            " @click="handleComplete(appt)" class="btn btn-success btn-outline btn-xs">
+                                完成
+                            </button>
+                            <button v-if="
+                                ['pending', 'waiting'].includes(
+                                    appt.status || appt.Status,
+                                )
+                            " @click="handleCancel(appt.id)" class="btn btn-error btn-outline btn-xs">
+                                取消
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <!-- Appointment Wizard Modal -->

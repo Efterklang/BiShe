@@ -19,33 +19,29 @@ const badgeColor = computed(() => {
     const colorMap = {
         'basic': 'badge-ghost',
         'vip': 'badge-success',
-        'silver': 'badge-warning',
-        'gold': 'badge-info',
+        'silver': 'badge-info',
+        'gold': 'badge-warning',
         'platinum': 'badge-primary',
         '普通会员': 'badge-ghost'
     };
     return colorMap[levelStr] || 'badge-ghost';
 });
 
-// badge 大小类
-const sizeClasses = computed(() => {
-    const sizeMap = {
-        'xs': 'badge-xs',
-        'sm': 'badge-sm',
-        'md': 'badge-md',
-        'lg': 'badge-lg'
-    };
-    return sizeMap[props.size] || sizeMap['sm'];
-});
-
 // 显示的等级文本
 const displayLevel = computed(() => {
-    return props.level || '普通会员';
+    const levelMap = {
+        'basic': '普通会员',
+        'vip': '会员',
+        'silver': '白银会员',
+        'gold': '黄金会员',
+        'platinum': '白金会员'
+    };
+    return levelMap[props.level] || '普通会员';
 });
 </script>
 
 <template>
-    <span :class="['badge', badgeColor, sizeClasses]">
+    <span :class="['badge', badgeColor]">
         {{ displayLevel }}
     </span>
 </template>
