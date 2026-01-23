@@ -1,5 +1,14 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
+import {
+    CreditCard,
+    TrendingUp,
+    TrendingDown,
+    UserPlus,
+    Activity,
+    AlertCircle,
+    Trophy
+} from 'lucide-vue-next';
 
 import Avatar from "../components/Avatar.vue";
 import MemberLevel from "../components/MemberLevel.vue";
@@ -136,11 +145,7 @@ const formatDateLabel = computed(() => {
                 <div class="card-body">
                     <div class="stat">
                         <div class="stat-figure text-success">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" class="w-8 h-8">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            <CreditCard class="w-8 h-8" />
                         </div>
                         <div class="stat-title">今日营收</div>
                         <div class="stat-value">¥{{ formatNumber(stats.dailyRevenue) }}</div>
@@ -149,18 +154,8 @@ const formatDateLabel = computed(() => {
                                 ? 'text-success'
                                 : 'text-error'
                                 " class="flex items-center mr-1">
-                                <svg v-if="stats.revenueGrowth >= 0" xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mr-0.5">
-                                    <path fill-rule="evenodd"
-                                        d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
-                                        clip-rule="evenodd" />
-                                </svg>
-                                <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-                                    class="w-4 h-4 mr-0.5">
-                                    <path fill-rule="evenodd"
-                                        d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z"
-                                        clip-rule="evenodd" />
-                                </svg>
+                                <TrendingUp v-if="stats.revenueGrowth >= 0" class="w-4 h-4 mr-0.5" />
+                                <TrendingDown v-else class="w-4 h-4 mr-0.5" />
                                 {{ formatNumber(Math.abs(stats.revenueGrowth)) }}%
                             </span>
                             较昨日
@@ -174,11 +169,7 @@ const formatDateLabel = computed(() => {
                 <div class="card-body">
                     <div class="stat">
                         <div class="stat-figure text-info">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" class="w-8 h-8">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-                            </svg>
+                            <UserPlus class="w-8 h-8" />
                         </div>
                         <div class="stat-title">新增会员</div>
                         <div class="stat-value">{{ stats.newMembers }}</div>
@@ -192,11 +183,7 @@ const formatDateLabel = computed(() => {
                 <div class="card-body">
                     <div class="stat">
                         <div class="stat-figure text-secondary">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" class="w-8 h-8">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                            </svg>
+                            <Activity class="w-8 h-8" />
                         </div>
                         <div class="stat-title">技师负载率</div>
                         <div class="stat-value">{{ formatNumber(stats.occupancyRate) }}%</div>
@@ -210,11 +197,7 @@ const formatDateLabel = computed(() => {
                 <div class="card-body">
                     <div class="stat">
                         <div class="stat-figure text-warning">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" class="w-8 h-8">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            <AlertCircle class="w-8 h-8" />
                         </div>
                         <div class="stat-title">待处理预约</div>
                         <div class="stat-value">8</div>
@@ -353,8 +336,9 @@ const formatDateLabel = computed(() => {
         <div class="card bg-base-100 border border-base-300 shadow-sm overflow-hidden">
             <div class="card-body">
                 <div class="flex justify-between items-center">
-                    <h3 class="card-title">
-                        🏆 裂变达人榜
+                    <h3 class="card-title flex items-center gap-2">
+                        <Trophy class="w-6 h-6 text-warning" />
+                        裂变达人榜
                     </h3>
                     <button class="btn btn-ghost btn-sm">
                         查看全部

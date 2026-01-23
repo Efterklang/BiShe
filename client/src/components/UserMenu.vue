@@ -26,11 +26,7 @@
 			<li v-if="isManager">
 				<router-link to="/users" class="gap-3 py-3 rounded-xl hover:bg-base-200/50 active:bg-base-200">
 					<div class="p-1.5 bg-base-200 rounded-lg group-hover:bg-base-300 transition-colors">
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-							stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-								d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-						</svg>
+						<Users class="h-4 w-4" />
 					</div>
 					<span class="font-medium">用户管理</span>
 				</router-link>
@@ -41,11 +37,7 @@
 				<a @click="handleLogout"
 					class="gap-3 py-3 rounded-xl text-error hover:bg-error/5 hover:text-error active:bg-error/10">
 					<div class="p-1.5 bg-error/10 rounded-lg transition-colors">
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-							stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-								d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-						</svg>
+						<LogOut class="h-4 w-4" />
 					</div>
 					<span class="font-medium">退出登录</span>
 				</a>
@@ -57,6 +49,7 @@
 <script setup>
 import { computed } from "vue";
 import { useRouter } from "vue-router";
+import { Users, LogOut } from 'lucide-vue-next';
 import { useAppStore } from "../stores/app";
 
 const router = useRouter();

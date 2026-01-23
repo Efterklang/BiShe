@@ -15,13 +15,10 @@ import {
     Sun,
     Moon,
     ChevronDown,
-    X,
-    RotateCw,
-    Sparkles
+    X
 } from 'lucide-vue-next';
 import { generateAIReport } from "../api/ai";
 import { useTheme } from "../composables/useTheme";
-import { useAppStore } from "../stores/app";
 import { usePermission } from "../composables/usePermission";
 import UserMenu from "./UserMenu.vue";
 
@@ -131,7 +128,7 @@ const menuItems = computed(() => {
     <div
         class="min-h-screen bg-base-100 font-sans text-base-content selection:bg-primary selection:text-primary-content drawer lg:drawer-open">
         <input id="drawer-toggle" type="checkbox" class="drawer-toggle" />
-        <div class="drawer-content flex-1 min-w-0">
+        <div class="drawer-content flex-1 min-w-0 flex flex-col">
             <!-- Mobile Header -->
             <div
                 class="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-base-100/80 backdrop-blur-sm border-b border-base-200">
@@ -247,94 +244,82 @@ const menuItems = computed(() => {
         <div class="drawer-side">
             <label for="drawer-toggle" aria-label="close sidebar" class="drawer-overlay"></label>
             <!-- Sidebar -->
-            <aside class="min-h-full w-80 bg-base-100 text-base-content">
-                <div class="flex flex-col h-full">
-                    <!-- Logo and User Menu -->
-                    <div class="h-16 flex items-center justify-between px-6 border-b border-base-200">
-                        <div class="flex items-center gap-2 font-bold text-xl tracking-tight">
-                            <div
-                                class="w-8 h-8 bg-primary text-primary-content rounded-lg flex items-center justify-center text-sm font-bold">
-                                S
-                            </div>
-                            <span>XX养生店</span>
+            <aside class="min-h-full w-80 bg-base-100 text-base-content flex flex-col">
+                <!-- Logo and User Menu -->
+                <div class="h-16 flex items-center justify-between px-6 border-b border-base-200">
+                    <div class="flex items-center gap-2 font-bold text-xl tracking-tight">
+                        <div
+                            class="w-8 h-8 bg-primary text-primary-content rounded-lg flex items-center justify-center text-sm font-bold">
+                            S
                         </div>
-                        <div class="hidden lg:block">
-                            <UserMenu />
-                        </div>
+                        <span>XX养生店</span>
                     </div>
+                    <div class="hidden lg:block">
+                        <UserMenu />
+                    </div>
+                </div>
 
-                    <!-- Navigation -->
-                    <nav class="flex-1 px-4 py-6 space-y-1">
-                        <p class="px-2 text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-4">
-                            Menu
-                        </p>
-                        <template v-for="item in menuItems" :key="item.name">
-                            <!-- Group with Children -->
-                            <div v-if="item.children" class="space-y-1">
-                                <details class="group" :open="item.children.some(child => route.path === child.path)">
-                                    <summary
-                                        class="flex items-center justify-between w-full gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors text-base-content/70 hover:bg-base-200 hover:text-base-content cursor-pointer select-none list-none marker:content-none">
-                                        <div class="flex items-center gap-3">
-                                            <component :is="item.icon" class="w-5 h-5" />
-                                            {{ item.name }}
-                                        </div>
-                                        <ChevronDown
-                                            class="w-4 h-4 transition-transform group-open:rotate-180 opacity-50" />
-                                    </summary>
-                                    <div class="mt-1 pl-4 space-y-1 border-l-2 border-base-200 ml-4">
-                                        <RouterLink v-for="child in item.children" :key="child.path" :to="child.path"
-                                            class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors"
-                                            :class="[
-                                                route.path === child.path
-                                                    ? 'bg-primary text-primary-content shadow-sm'
-                                                    : 'text-base-content/70 hover:bg-base-200 hover:text-base-content',
-                                            ]">
-                                            <component :is="child.icon" class="w-5 h-5" />
-                                            {{ child.name }}
-                                        </RouterLink>
+                <!-- Navigation -->
+                <nav class="flex-1 px-4 py-6 space-y-1">
+                    <p class="px-2 text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-4">
+                        Menu
+                    </p>
+                    <template v-for="item in menuItems" :key="item.name">
+                        <!-- Group with Children -->
+                        <div v-if="item.children" class="space-y-1">
+                            <details class="group" :open="item.children.some(child => route.path === child.path)">
+                                <summary
+                                    class="flex items-center justify-between w-full gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors text-base-content/70 hover:bg-base-200 hover:text-base-content cursor-pointer select-none list-none marker:content-none">
+                                    <div class="flex items-center gap-3">
+                                        <component :is="item.icon" class="w-5 h-5" />
+                                        {{ item.name }}
                                     </div>
-                                </details>
-                            </div>
+                                    <ChevronDown
+                                        class="w-4 h-4 transition-transform group-open:rotate-180 opacity-50" />
+                                </summary>
+                                <div class="mt-1 pl-4 space-y-1 border-l-2 border-base-200 ml-4">
+                                    <RouterLink v-for="child in item.children" :key="child.path" :to="child.path"
+                                        class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors"
+                                        :class="[
+                                            route.path === child.path
+                                                ? 'bg-primary text-primary-content shadow-sm'
+                                                : 'text-base-content/70 hover:bg-base-200 hover:text-base-content',
+                                        ]">
+                                        <component :is="child.icon" class="w-5 h-5" />
+                                        {{ child.name }}
+                                    </RouterLink>
+                                </div>
+                            </details>
+                        </div>
 
-                            <!-- Single Item -->
-                            <RouterLink v-else :to="item.path"
-                                class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors"
-                                :class="[
-                                    route.path === item.path
-                                        ? 'bg-primary text-primary-content shadow-sm'
-                                        : 'text-base-content/70 hover:bg-base-200 hover:text-base-content',
-                                ]">
-                                <component :is="item.icon" class="w-5 h-5" />
-                                {{ item.name }}
-                            </RouterLink>
-                        </template>
-                    </nav>
+                        <!-- Single Item -->
+                        <RouterLink v-else :to="item.path"
+                            class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors"
+                            :class="[
+                                route.path === item.path
+                                    ? 'bg-primary text-primary-content shadow-sm'
+                                    : 'text-base-content/70 hover:bg-base-200 hover:text-base-content',
+                            ]">
+                            <component :is="item.icon" class="w-5 h-5" />
+                            {{ item.name }}
+                        </RouterLink>
+                    </template>
+                </nav>
 
-                    <!-- Footer Actions -->
-                    <div class="p-4 border-t border-base-200 space-y-3">
-                        <label class="flex cursor-pointer gap-2 bg-base-200/50 p-2 rounded-lg justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="5" />
-                                <path
-                                    d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" />
-                            </svg>
-                            <input type="checkbox" value="dark" class="toggle theme-controller"
-                                :checked="themePreference === 'dark'"
-                                @change="themePreference === 'dark' ? setThemePreference('light') : setThemePreference('dark')" />
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                            </svg>
-                        </label>
-                        <button v-if="canViewAI" @click="openAIAdvisor"
-                            class="w-full btn btn-primary btn-sm h-10 font-medium">
-                            <span>🤖</span>
-                            AI 经营顾问
-                        </button>
-                    </div>
+                <!-- Footer Actions -->
+                <div class="mt-auto p-4 border-t border-base-200 space-y-3">
+                    <label class="flex cursor-pointer gap-2 bg-base-200/50 p-2 rounded-lg justify-center">
+                        <Sun class="w-5 h-5" />
+                        <input type="checkbox" value="dark" class="toggle theme-controller"
+                            :checked="themePreference === 'dark'"
+                            @change="themePreference === 'dark' ? setThemePreference('light') : setThemePreference('dark')" />
+                        <Moon class="w-5 h-5" />
+                    </label>
+                    <button v-if="canViewAI" @click="openAIAdvisor"
+                        class="w-full btn btn-primary btn-sm h-10 font-medium">
+                        <Bot class="w-5 h-5" />
+                        AI 经营顾问
+                    </button>
                 </div>
             </aside>
         </div>
