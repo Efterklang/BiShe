@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, defineAsyncComponent } from "vue";
 import {
     CreditCard,
     TrendingUp,
@@ -21,7 +21,8 @@ import {
     getServiceRanking,
     getProductSales,
 } from "../api/dashboard";
-import RevenueTrend from "../components/RevenueTrend.vue";
+
+const RevenueTrend = defineAsyncComponent(() => import("../components/RevenueTrend.vue"));
 
 const stats = ref({
     dailyRevenue: 0,

@@ -1,15 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAppStore } from "../stores/app";
 import Layout from "../components/Layout.vue";
-import Appointments from "../views/Appointments.vue";
-import Dashboard from "../views/Dashboard.vue";
-import History from "../views/History.vue";
-import Members from "../views/Members.vue";
-import Services from "../views/Services.vue";
-import Technicians from "../views/Technicians.vue";
-import Login from "../views/Login.vue";
-import UserManagement from "../views/UserManagement.vue";
-import Products from "../views/Products.vue";
 
 const router = createRouter({
 	history: createWebHistory(import.meta.env.BASE_URL),
@@ -17,7 +8,7 @@ const router = createRouter({
 		{
 			path: "/login",
 			name: "login",
-			component: Login,
+			component: () => import("../views/Login.vue"),
 			meta: { requiresAuth: false },
 		},
 		{
@@ -28,43 +19,43 @@ const router = createRouter({
 				{
 					path: "",
 					name: "dashboard",
-					component: Dashboard,
+					component: () => import("../views/Dashboard.vue"),
 				},
 				{
 					path: "appointments",
 					name: "appointments",
-					component: Appointments,
+					component: () => import("../views/Appointments.vue"),
 				},
 				{
 					path: "technicians",
 					name: "technicians",
-					component: Technicians,
+					component: () => import("../views/Technicians.vue"),
 				},
 				{
 					path: "services",
 					name: "services",
-					component: Services,
+					component: () => import("../views/Services.vue"),
 				},
 				{
 					path: "members",
 					name: "members",
-					component: Members,
+					component: () => import("../views/Members.vue"),
 				},
 				{
 					path: "history",
 					name: "history",
-					component: History,
+					component: () => import("../views/History.vue"),
 				},
 				{
 					path: "products",
 					name: "products",
-					component: Products,
+					component: () => import("../views/Products.vue"),
 					meta: { requiresAuth: true },
 				},
 				{
 					path: "users",
 					name: "users",
-					component: UserManagement,
+					component: () => import("../views/UserManagement.vue"),
 					meta: { requiresAuth: true, roles: ["manager"] },
 				},
 			],
