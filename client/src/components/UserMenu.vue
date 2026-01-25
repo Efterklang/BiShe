@@ -2,12 +2,12 @@
 	<div class="dropdown dropdown-end">
 		<div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder group">
 			<div
-				class="bg-neutral text-neutral-content rounded-full w-10 ring-2 ring-transparent group-hover:ring-primary/50 transition-all duration-300">
-				<span class="text-xl font-medium">{{ userInitial }}</span>
+				class="rounded-full w-10 h-10 bg-base-100 border border-base-300 flex items-center justify-center ring-2 ring-transparent group-hover:ring-primary/50 transition-all duration-300 shadow-sm group-hover:shadow-md">
+				<User class="w-5 h-5 text-base-content/70" />
 			</div>
 		</div>
 		<ul tabindex="0"
-			class="dropdown-content z-[50] menu p-2 shadow-2xl bg-base-100 rounded-2xl w-64 border border-base-200/50 mt-2 origin-top-right">
+			class="dropdown-content z-50 menu p-2 shadow-2xl bg-base-100/95 backdrop-blur-sm rounded-2xl w-64 border border-base-200/50 mt-2 origin-top-right ring-1 ring-base-300/20">
 			<!-- User Info Header -->
 			<li class="menu-title px-4 py-3">
 				<div class="flex flex-col gap-2">
@@ -49,7 +49,7 @@
 <script setup>
 import { computed } from "vue";
 import { useRouter } from "vue-router";
-import { Users, LogOut } from 'lucide-vue-next';
+import { Users, LogOut, User } from 'lucide-vue-next';
 import { useAppStore } from "../stores/app";
 
 const router = useRouter();

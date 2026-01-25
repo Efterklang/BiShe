@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, reactive, watch } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 import {
     LayoutDashboard,
@@ -13,8 +13,8 @@ import {
     Bot,
     Sun,
     Moon,
-    ChevronDown,
-    X
+    X,
+    ChevronRight
 } from 'lucide-vue-next';
 import { useTheme } from "../composables/useTheme";
 import { usePermission } from "../composables/usePermission";
@@ -64,6 +64,24 @@ const menuItems = computed(() => {
     return items;
 });
 
+const menuOpenState = reactive({});
+watch(
+    () => route.path,
+    () => {
+        menuItems.value.forEach((item) => {
+            if (item.children && item.children.some((child) => route.path === child.path)) {
+                menuOpenState[item.name] = true;
+            }
+        });
+    },
+    { immediate: true } // 初始化时立即执行一次
+)
+
+const handleMenuToggle = (event, itemName) => {
+    // 同步 DOM 的 open 状态到我们的变量中
+    menuOpenState[itemName] = event.target.open;
+};
+
 
 </script>
 
@@ -75,16 +93,13 @@ const menuItems = computed(() => {
             <!-- Mobile Header -->
             <div
                 class="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-base-100/80 backdrop-blur-sm border-b border-base-200">
-                <div class="flex items-center gap-2 font-bold text-lg tracking-tight">
+                <div class="flex items-center gap-2 font-bold text-lg">
                     <span class="text-primary">Smart</span>Spa
                 </div>
                 <div class="flex items-center gap-2">
                     <UserMenu />
                 </div>
             </div>
-
-
-
 
             <!-- Main Content -->
             <main class="flex-1 min-w-0 pb-20 lg:pb-10">
@@ -190,7 +205,7 @@ const menuItems = computed(() => {
             <aside class="min-h-full w-80 bg-base-100 text-base-content flex flex-col">
                 <!-- Logo and User Menu -->
                 <div class="h-16 flex items-center justify-between px-6 border-b border-base-200">
-                    <div class="flex items-center gap-2 font-bold text-xl tracking-tight">
+                    <div class="flex items-center gap-2 font-bold text-xl">
                         <div
                             class="w-8 h-8 bg-primary text-primary-content rounded-lg flex items-center justify-center text-sm font-bold">
                             S
@@ -210,15 +225,15 @@ const menuItems = computed(() => {
                     <template v-for="item in menuItems" :key="item.name">
                         <!-- Group with Children -->
                         <div v-if="item.children" class="space-y-1">
-                            <details class="group" :open="item.children.some(child => route.path === child.path)">
+                            <details class="group" :open="menuOpenState[item.name]"
+                                @toggle="handleMenuToggle($event, item.name)">
                                 <summary
                                     class="flex items-center justify-between w-full gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors text-base-content/70 hover:bg-base-200 hover:text-base-content cursor-pointer select-none list-none marker:content-none">
                                     <div class="flex items-center gap-3">
                                         <component :is="item.icon" class="w-5 h-5" />
                                         {{ item.name }}
                                     </div>
-                                    <ChevronDown
-                                        class="w-4 h-4 transition-transform group-open:rotate-180 opacity-50" />
+                                    <ChevronRight class="size-4 transition-transform group-open:rotate-90 opacity-50" />
                                 </summary>
                                 <div class="mt-1 pl-4 space-y-1 border-l-2 border-base-200 ml-4">
                                     <RouterLink v-for="child in item.children" :key="child.path" :to="child.path"
