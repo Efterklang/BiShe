@@ -40,6 +40,7 @@ type Member struct {
 type Technician struct {
 	BaseModel
 	Name          string         `gorm:"size:64;not null" json:"name"`
+	AvatarURL     string         `gorm:"size:255" json:"avatar_url"` // 头像链接
 	Skills        datatypes.JSON `gorm:"type:json" json:"skills"`
 	Status        int            `gorm:"default:0" json:"status"` // 0:free, 1:booked, 2:leave
 	AverageRating float32        `gorm:"type:decimal(3,2);default:0" json:"average_rating"`

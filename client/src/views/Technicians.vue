@@ -53,8 +53,8 @@ const technicianAppointments = ref([]);
 
 const formData = ref({
     name: "",
+    avatar_url: "",
     skills: [], // Changed to array of service IDs
-    status: 0,
 });
 
 const fetchTechnicians = async () => {
@@ -84,7 +84,7 @@ onMounted(fetchTechnicians);
 
 const openCreateModal = () => {
     editingId.value = null;
-    formData.value = { name: "", skills: [], status: 0 };
+    formData.value = { name: "", avatar_url: "", skills: [] };
     createModalRef.value?.showModal();
     fetchServices();
 };
@@ -93,13 +93,22 @@ const closeCreateModal = () => {
     createModalRef.value?.close();
 };
 
-const handleEdit = (tech) => {
+const handleEdit = async (tech) => {
     editingId.value = tech.id;
+    // Ensure services are loaded to map names to IDs correctly
+    if (services.value.length === 0) {
+        await fetchServices();
+    }
+
     let skillsArray = [];
 
     if (tech.skills || tech.Skills) {
         try {
-            const skillsData = JSON.parse(tech.skills || tech.Skills);
+            // Check if skills is already an object/array (not a string)
+            const skillsData = typeof (tech.skills || tech.Skills) === 'string'
+                ? JSON.parse(tech.skills || tech.Skills)
+                : (tech.skills || tech.Skills);
+
             if (Array.isArray(skillsData)) {
                 // Check if array contains IDs (new format) or strings (old format)
                 if (skillsData.length > 0 && typeof skillsData[0] === 'number') {
@@ -121,11 +130,10 @@ const handleEdit = (tech) => {
 
     formData.value = {
         name: tech.name,
+        avatar_url: tech.avatar_url || "",
         skills: skillsArray, // Array of IDs
-        status: tech.status,
     };
     createModalRef.value?.showModal();
-    fetchServices();
 };
 
 const handleSchedule = (tech) => {
@@ -204,8 +212,8 @@ const handleSubmit = async () => {
     try {
         const payload = {
             name: formData.value.name,
+            avatar_url: formData.value.avatar_url,
             skills: formData.value.skills, // 直接发送ID数组
-            status: Number(formData.value.status),
         };
 
         if (editingId.value) {
@@ -227,20 +235,6 @@ const handleSubmit = async () => {
     }
 };
 
-const getStatusInfo = (status) => {
-    switch (Number(status)) {
-        case 0:
-            return { text: "空闲", class: "badge-success" };
-        case 1:
-            return { text: "忙碌", class: "badge-warning" };
-        case 2:
-            return { text: "请假", class: "badge-ghost" };
-        default:
-            return { text: "未知", class: "badge-ghost" };
-    }
-};
-
-// Toggle skill selection
 const toggleSkill = (serviceId) => {
     const index = formData.value.skills.indexOf(serviceId);
     if (index === -1) {
@@ -319,49 +313,68 @@ const closeSkillsModal = () => {
             <!-- Technicians Grid -->
             <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 <div v-for="tech in technicians" :key="tech.id"
-                    class="group relative flex flex-col bg-base-100 border border-base-300 rounded-xl p-6 hover:border-primary/50 transition-all duration-200 hover:shadow-sm">
-                    <!-- Status Badge -->
-                    <div class="absolute top-4 right-4">
-                        <span class="badge badge-sm" :class="getStatusInfo(tech.status).class">
-                            {{ getStatusInfo(tech.status).text }}
-                        </span>
-                    </div>
+                    class="group relative flex flex-col bg-base-100 border border-base-200 rounded-2xl p-0 hover:border-primary/30 hover:shadow-lg transition-all duration-300 overflow-hidden">
+
+                    <!-- Decorative Header Background -->
+                    <div class="h-20 bg-gradient-to-r from-primary/10 to-primary/5 w-full"></div>
 
                     <!-- Avatar & Info -->
-                    <div class="flex flex-col items-center text-center mb-4">
-                        <div class="mb-4 ring-4 ring-base-100 shadow-sm rounded-full">
-                            <Avatar :name="tech.name" size="xl" />
+                    <div class="flex flex-col items-center text-center -mt-10 px-6 pb-4">
+                        <div class="mb-3 ring-4 ring-base-100 shadow-md rounded-full bg-base-100 p-1">
+                            <Avatar :name="tech.name" :src="tech.avatar_url" size="xl" class="w-20 h-20 text-xl" />
                         </div>
-                        <h3 class="text-lg font-semibold text-base-content">
-                            {{ tech.name }}
-                        </h3>
 
-                        <!-- Rating -->
-                        <div class="flex items-center gap-1 mt-1 text-warning text-sm font-medium">
-                            <Star class="w-4 h-4 fill-current" />
-                            <span>{{
-                                tech.average_rating || tech.AverageRating || 5.0
-                                }}</span>
+                        <div class="flex items-center gap-2 mb-1">
+                            <h3 class="text-lg font-bold text-base-content tracking-tight">
+                                {{ tech.name }}
+                            </h3>
+                        </div>
+
+                        <!-- Order Stats -->
+                        <div
+                            class="flex items-center gap-2 mt-4 text-sm justify-between bg-base-200/40 rounded-xl p-3 w-full border border-base-200/60">
+                            <div class="flex flex-col items-center flex-1">
+                                <span
+                                    class="text-xs text-base-content/50 mb-0.5 uppercase tracking-wider font-semibold">待服务</span>
+                                <span class="text-lg font-bold text-primary">{{ tech.pending_orders || 0 }}</span>
+                            </div>
+                            <div class="w-px h-8 bg-base-300"></div>
+                            <div class="flex flex-col items-center flex-1">
+                                <span
+                                    class="text-xs text-base-content/50 mb-0.5 uppercase tracking-wider font-semibold">总接单</span>
+                                <span class="text-lg font-bold text-base-content/80">{{ tech.total_orders || 0 }}</span>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Skills -->
-                    <div class="flex-1">
-                        <div class="flex flex-wrap gap-2 justify-center">
-                            <span v-for="(skill, idx) in tech.skill_names" :key="idx"
-                                class="badge badge-outline text-xs">
+                    <div class="flex-1 px-6 pb-4">
+                        <div class="text-xs font-medium text-base-content/40 mb-2 uppercase tracking-wider text-center">
+                            擅长项目</div>
+                        <div class="flex flex-wrap gap-1.5 justify-center">
+                            <span v-for="(skill, idx) in tech.skill_names.slice(0, 5)" :key="idx"
+                                class="badge badge-sm badge-ghost bg-base-200/50 border-base-200 text-xs font-normal">
                                 {{ skill }}
+                            </span>
+                            <span v-if="tech.skill_names.length > 5" class="badge badge-sm badge-ghost text-xs">
+                                +{{ tech.skill_names.length - 5 }}
+                            </span>
+                            <span v-if="!tech.skill_names || tech.skill_names.length === 0"
+                                class="text-xs text-base-content/40 italic">
+                                暂无技能标签
                             </span>
                         </div>
                     </div>
 
                     <!-- Actions -->
-                    <div class="mt-6 pt-4 border-t border-base-200 flex gap-2">
-                        <button @click="handleSchedule(tech)" class="btn btn-outline flex-1 btn-sm">
+                    <div class="p-4 border-t border-base-100 bg-base-50/50 flex gap-3 mt-auto">
+                        <button @click="handleSchedule(tech)"
+                            class="btn btn-primary btn-sm flex-1 font-medium shadow-sm hover:shadow-md transition-shadow">
                             查看预约
                         </button>
+
                         <div class="dropdown dropdown-top dropdown-end">
-                            <div tabindex="0" role="button" class="btn btn-square btn-outline btn-sm">
+                            <div tabindex="0" role="button" class="btn btn-square btn-ghost btn-sm hover:bg-base-200">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                     stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                                     <path stroke-linecap="round" stroke-linejoin="round"
@@ -369,10 +382,10 @@ const closeSkillsModal = () => {
                                 </svg>
                             </div>
                             <ul tabindex="0"
-                                class="dropdown-content z-1 menu p-2 shadow bg-base-100 rounded-box w-32 border border-base-200">
-                                <li v-if="canManageTechnicians"><a @click="handleEdit(tech)">编辑</a></li>
-                                <li v-if="canManageTechnicians"><a @click="handleDelete(tech)" class="text-error">删除</a>
-                                </li>
+                                class="dropdown-content z-1 menu p-1 shadow-lg bg-base-100 rounded-xl w-32 border border-base-100 text-sm">
+                                <li v-if="canManageTechnicians"><a @click="handleEdit(tech)" class="py-2">编辑资料</a></li>
+                                <li v-if="canManageTechnicians"><a @click="handleDelete(tech)"
+                                        class="text-error hover:bg-error/10 py-2">删除技师</a></li>
                             </ul>
                         </div>
                     </div>
@@ -407,6 +420,12 @@ const closeSkillsModal = () => {
                             <label class="block text-sm font-medium text-base-content/80 mb-1">姓名</label>
                             <input type="text" v-model="formData.name" placeholder="请输入技师姓名"
                                 class="input input-bordered w-full bg-base-100" required />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-base-content/80 mb-1">头像链接</label>
+                            <input type="text" v-model="formData.avatar_url" placeholder="请输入头像URL地址 (可选)"
+                                class="input input-bordered w-full bg-base-100" />
                         </div>
 
                         <!-- Skills Selection -->
@@ -444,15 +463,6 @@ const closeSkillsModal = () => {
                                     请先在"服务管理"中添加服务项目
                                 </span>
                             </label>
-                        </div>
-
-                        <div v-if="editingId">
-                            <label class="block text-sm font-medium text-base-content/80 mb-1">状态</label>
-                            <select v-model="formData.status" class="select select-bordered w-full bg-base-100">
-                                <option :value="0">空闲</option>
-                                <option :value="1">忙碌</option>
-                                <option :value="2">请假</option>
-                            </select>
                         </div>
 
                         <div class="pt-2">

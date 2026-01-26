@@ -7,6 +7,10 @@ const props = defineProps({
         required: true,
         default: '?'
     },
+    src: {
+        type: String,
+        default: ''
+    },
     size: {
         type: String,
         default: 'md', // xs, sm, md, lg, xl
@@ -63,7 +67,11 @@ const initial = computed(() => {
 </script>
 
 <template>
-    <div :class="[
+    <img v-if="src" :src="src" :alt="name" :class="[
+        sizeClasses,
+        'rounded-full object-cover shrink-0'
+    ]" />
+    <div v-else :class="[
         avatarColors.bg,
         avatarColors.text,
         sizeClasses,

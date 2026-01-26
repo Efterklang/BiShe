@@ -491,13 +491,23 @@ func ListTechnicians(c *gin.Context) {
 			skillNames = make([]string, 0)
 		}
 
+		// Count orders
+		var pendingCount int64
+		db.DB.Model(&models.Appointment{}).Where("tech_id = ? AND status = ?", tech.ID, "pending").Count(&pendingCount)
+
+		var totalCount int64
+		db.DB.Model(&models.Appointment{}).Where("tech_id = ? AND status != ?", tech.ID, "cancelled").Count(&totalCount)
+
 		result = append(result, gin.H{
 			"id":             tech.ID,
 			"name":           tech.Name,
+			"avatar_url":     tech.AvatarURL,
 			"status":         tech.Status,
 			"average_rating": tech.AverageRating,
 			"skills":         tech.Skills, // 保留原始 skills ID
 			"skill_names":    skillNames,
+			"pending_orders": pendingCount,
+			"total_orders":   totalCount,
 		})
 	}
 
@@ -507,9 +517,9 @@ func ListTechnicians(c *gin.Context) {
 // CreateTechnician 创建技师
 func CreateTechnician(c *gin.Context) {
 	var req struct {
-		Name   string        `json:"name"`
-		Status int           `json:"status"`
-		Skills []interface{} `json:"skills"`
+		Name      string        `json:"name"`
+		AvatarURL string        `json:"avatar_url"`
+		Skills    []interface{} `json:"skills"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, err.Error(), nil))
@@ -558,9 +568,10 @@ func CreateTechnician(c *gin.Context) {
 	}
 
 	tech := models.Technician{
-		Name:   req.Name,
-		Status: req.Status,
-		Skills: skillsJSON,
+		Name:      req.Name,
+		AvatarURL: req.AvatarURL,
+		Status:    0, // Default to Free
+		Skills:    skillsJSON,
 	}
 
 	if err := db.DB.Create(&tech).Error; err != nil {
@@ -582,9 +593,9 @@ func UpdateTechnician(c *gin.Context) {
 
 	// 为了灵活处理前端传来的 skills (可能是名称或ID)，我们定义一个新的结构体
 	var req struct {
-		Name   string        `json:"name"`
-		Status int           `json:"status"`
-		Skills []interface{} `json:"skills"` // 接收混合类型
+		Name      string        `json:"name"`
+		AvatarURL string        `json:"avatar_url"`
+		Skills    []interface{} `json:"skills"` // 接收混合类型
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -630,7 +641,8 @@ func UpdateTechnician(c *gin.Context) {
 	}
 
 	tech.Name = req.Name
-	tech.Status = req.Status
+	tech.AvatarURL = req.AvatarURL
+	// Status is no longer updated
 	tech.Skills = skillsJSON
 
 	if err := db.DB.Save(&tech).Error; err != nil {
