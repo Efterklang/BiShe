@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // GetSchedules 获取排班列表 (支持月视图和日视图的数据需求)
@@ -27,9 +29,56 @@ func GetSchedules(c *gin.Context) {
 	}
 
 	var schedules []models.Schedule
+	// 查询时使用 Preload 加载 Technician 信息
+	// datatypes.Date 映射到数据库中的 DATE 类型（字符串），可以直接进行比较
+	// 且不需要处理时区和时分秒问题，date >= '2026-01-01' AND date <= '2026-01-31' 可以正确包含边界
+	// 注意：endDateStr 已经是 "YYYY-MM-DD" 格式，可以直接比较
+	// 关键：GORM 的 datatypes.Date 实现了 Scanner/Valuer，在查询时会将 time.Time 或 string 转换为正确的格式
+	// 但是在 Where 语句中，如果传入的是 string，数据库会进行字符串比较。
+	// 对于 SQLite，DATE 类型本质上是 TEXT。
+	// "2026-01-31" <= "2026-01-31" 是 true。
+	// GORM 默认使用 time.Time 解析 date，所以 Where("date >= ? AND date <= ?", startDateStr, endDateStr) 会把 string 解析为 time.Time
+	// 这样就变成了 date >= '2026-01-01 00:00:00+00:00' AND date <= '2026-01-31 00:00:00+00:00'
+	// 而数据库里存的是 "2026-01-31"，字符串比较 '2026-01-31' <= '2026-01-31 00:00:00+00:00' 是 true
+	// 等等，数据库里存的是什么？
+	// 迁移脚本执行的是 `UPDATE schedules SET date = substr(date, 1, 10)`，所以数据库里存的是 "2026-01-31"
+	// 测试数据使用 `datatypes.Date(time.Time)` 创建。GORM 在 SQLite 下 datatypes.Date 的 Valuer 实现：
+	// return time.Time(date).Format("2006-01-02"), nil
+	// 所以测试数据也是存为 "2026-01-31"。
+	//
+	// 查询参数 startDateStr 和 endDateStr 是字符串 "2026-01-01" 和 "2026-01-31"。
+	// GORM Where 的行为：
+	// 如果参数是 string，且没有手动 Cast，GORM 可能会直接传给数据库驱动。
+	// 但如果模型字段是 time.Time，GORM 可能会尝试解析。这里模型字段是 datatypes.Date。
+	// datatypes.Date 本质是 time.Time。
+	// 让我们尝试显式转换类型，确保 GORM 知道我们在比较什么。
+	// 或者直接使用字符串比较。
+	//
+	// 实际上，问题可能出在 TestGetSchedules 的 setup 并没有使用迁移后的数据库（它是内存数据库，且每次新建）。
+	// 在 TestGetSchedules 中：
+	// testDB.Model(&models.Schedule{}).Create(...)
+	// 这里的 Create 使用的是 GORM + datatypes.Date。
+	// datatypes.Date 在 Save 时会格式化为 "YYYY-MM-DD"。
+	// 所以内存数据库里存的是 "2026-01-31"。
+	//
+	// 查询时：
+	// Where("date >= ? AND date <= ?", "2026-01-01", "2026-01-31")
+	// 数据库执行：SELECT * FROM schedules WHERE date >= '2026-01-01' AND date <= '2026-01-31'
+	// 字符串比较 "2026-01-31" <= "2026-01-31" 是 TRUE。
+	// 理论上应该能查到。
+	//
+	// 为什么测试失败？
+	// schedule_handler_test.go:257: Expected 2 records, got 1. Dates: [2026-01-01]
+	// 说明 01-31 没查到。
+	//
+	// 让我们调试一下，把 endDateStr 打印出来或者转换成 datatypes.Date 再传给 Where。
+
+	sDate, _ := time.Parse("2006-01-02", startDateStr)
+	eDate, _ := time.Parse("2006-01-02", endDateStr)
+
 	query := db.DB.Model(&models.Schedule{}).
 		Preload("Technician").
-		Where("date >= ? AND date <= ?", startDateStr, endDateStr)
+		Where("date >= ? AND date <= ?", datatypes.Date(sDate), datatypes.Date(eDate))
 
 	// 支持按技师筛选
 	techIDs := c.QueryArray("tech_ids[]") // 前端传 tech_ids[]=1&tech_ids[]=2
@@ -69,34 +118,43 @@ func BatchSetSchedule(c *gin.Context) {
 
 	for _, techID := range req.TechIDs {
 		for _, dateStr := range req.Dates {
-			// 解析日期
-			date, err := time.Parse("2006-01-02", dateStr)
+			// 解析日期 (验证格式)
+			parsedDate, err := time.Parse("2006-01-02", dateStr)
 			if err != nil {
 				tx.Rollback()
 				c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "日期格式错误: " + dateStr})
 				return
 			}
+			// 转换为 datatypes.Date
+			date := datatypes.Date(parsedDate)
 
 			var schedule models.Schedule
 			// 查找是否存在记录，存在则更新，不存在则创建 (Upsert)
-			result := tx.Where("tech_id = ? AND date = ?", techID, date).First(&schedule)
+			dbErr := tx.Where("tech_id = ? AND date = ?", techID, date).First(&schedule).Error
 
-			if result.RowsAffected == 0 {
+			if errors.Is(dbErr, gorm.ErrRecordNotFound) {
 				// 创建新记录
-				schedule = models.Schedule{
-					TechID:      techID,
-					Date:        date,
-					IsAvailable: req.IsAvailable,
-					TimeSlots:   datatypes.JSON([]byte("[]")), // 初始化为空数组
-				}
-				if err := tx.Create(&schedule).Error; err != nil {
+				// Create using map to ensure zero values are respected
+				if err := tx.Model(&models.Schedule{}).Create(map[string]interface{}{
+					"tech_id":      techID,
+					"date":         date,
+					"is_available": req.IsAvailable,
+					"time_slots":   datatypes.JSON([]byte("[]")),
+				}).Error; err != nil {
 					tx.Rollback()
 					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "创建排班失败"})
 					return
 				}
+			} else if dbErr != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "查询排班失败"})
+				return
 			} else {
 				// 更新现有记录状态
-				if err := tx.Model(&schedule).Update("is_available", req.IsAvailable).Error; err != nil {
+				// 使用 Map 更新，确保 false 值也能被更新
+				if err := tx.Model(&schedule).Updates(map[string]interface{}{
+					"is_available": req.IsAvailable,
+				}).Error; err != nil {
 					tx.Rollback()
 					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "更新排班失败"})
 					return
@@ -184,8 +242,9 @@ func GetAvailableTechnicians(c *gin.Context) {
 
 	// 检查排班状态（是否在岗）
 	checkDate := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), 0, 0, 0, 0, time.UTC)
+	dateStr := checkDate.Format("2006-01-02")
 	var schedules []models.Schedule
-	db.DB.Where("date = ?", checkDate).Find(&schedules)
+	db.DB.Where("date = ?", dateStr).Find(&schedules)
 
 	scheduleMap := make(map[uint]bool)
 	for _, s := range schedules {
@@ -286,7 +345,8 @@ func GetTechnicianScheduleDetail(c *gin.Context) {
 
 	// 获取排班信息
 	var schedule models.Schedule
-	scheduleErr := db.DB.Where("tech_id = ? AND date = ?", techIDStr, date).First(&schedule).Error
+	// datatypes.Date可以直接用字符串查询
+	scheduleErr := db.DB.Where("tech_id = ? AND date = ?", techIDStr, dateStr).First(&schedule).Error
 
 	// 如果没有排班记录，默认为可用
 	isAvailable := true
@@ -384,9 +444,10 @@ func GetTimeSlotsAvailability(c *gin.Context) {
 	}
 
 	// 2. 预处理：获取当天排班（请假情况）
-	checkDate := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	// datatypes.Date 存储为 "YYYY-MM-DD"，查询时直接使用 dateStr 即可
+	// checkDate := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 	var schedules []models.Schedule
-	db.DB.Where("date = ?", checkDate).Find(&schedules)
+	db.DB.Where("date = ?", dateStr).Find(&schedules)
 	unavailableScheduleTechs := make(map[uint]bool)
 	for _, s := range schedules {
 		if !s.IsAvailable {
@@ -395,8 +456,8 @@ func GetTimeSlotsAvailability(c *gin.Context) {
 	}
 
 	// 3. 预处理：获取当天所有预约
-	startOfDay := checkDate
-	endOfDay := checkDate.Add(24 * time.Hour)
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	endOfDay := startOfDay.Add(24 * time.Hour)
 	var appointments []models.Appointment
 	db.DB.Where("start_time >= ? AND start_time < ? AND status = ?", startOfDay, endOfDay, "pending").
 		Find(&appointments)

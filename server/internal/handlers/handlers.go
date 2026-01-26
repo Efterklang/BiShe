@@ -188,8 +188,13 @@ func CreateAppointment(c *gin.Context) {
 	// Check Schedule Availability
 	// Normalize date to UTC midnight for comparison with Schedule table
 	checkDate := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), 0, 0, 0, 0, time.UTC)
+	// datatypes.Date stores as YYYY-MM-DD string in SQLite, so we need to match that format
+	// casting time.Time to datatypes.Date triggers its GormDataType interface/Valuer which formats it correctly
 	var schedule models.Schedule
-	if err := db.DB.Where("tech_id = ? AND date = ?", req.TechID, checkDate).First(&schedule).Error; err == nil {
+	// 需要引入 gorm.io/datatypes
+	// 但这里我们也可以直接用 string
+	dateStr := checkDate.Format("2006-01-02")
+	if err := db.DB.Where("tech_id = ? AND date = ?", req.TechID, dateStr).First(&schedule).Error; err == nil {
 		if !schedule.IsAvailable {
 			c.JSON(http.StatusConflict, response.Error(http.StatusConflict, "Technician is on leave/unavailable on this date", nil))
 			return

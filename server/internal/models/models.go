@@ -71,7 +71,7 @@ type Appointment struct {
 	Status         string         `gorm:"size:24;default:'pending'" json:"status"` // pending/completed/waitlist/cancelled
 	OriginPrice    float64        `gorm:"type:decimal(10,2);not null" json:"origin_price"`
 	ActualPrice    float64        `gorm:"type:decimal(10,2);not null" json:"actual_price"`
-	PaymentMethod  string         `gorm:"size:32" json:"payment_method"`                   // balance/cash/mixed
+	PaymentMethod  string         `gorm:"size:32" json:"payment_method"`                    // balance/cash/mixed
 	PaidBalance    float64        `gorm:"type:decimal(10,2);default:0" json:"paid_balance"` // 余额支付金额
 	PaidCash       float64        `gorm:"type:decimal(10,2);default:0" json:"paid_cash"`    // 现金支付金额
 }
@@ -81,7 +81,7 @@ type Schedule struct {
 	BaseModel
 	TechID      uint           `gorm:"index;not null" json:"tech_id"`
 	Technician  Technician     `gorm:"foreignKey:TechID" json:"technician,omitempty"`
-	Date        time.Time      `gorm:"index;not null" json:"date"`
+	Date        datatypes.Date `gorm:"index;not null" json:"date"`
 	TimeSlots   datatypes.JSON `gorm:"type:json" json:"time_slots"`
 	IsAvailable bool           `gorm:"default:true" json:"is_available"`
 }
