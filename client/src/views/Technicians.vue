@@ -14,7 +14,6 @@ import { usePermission } from "../composables/usePermission";
 import {
     Plus,
     Users,
-    Star,
     X,
     Calendar,
     Clock,
@@ -25,7 +24,8 @@ import {
     User,
     Briefcase,
     Pencil,
-    Trash2
+    Trash2,
+    CheckCircle
 } from 'lucide-vue-next';
 import "cally";
 
@@ -275,7 +275,7 @@ const closeSkillsModal = () => {
                     技师管理
                 </h1>
                 <p class="mt-1 text-base-content/60">
-                    管理店内技师团队，查看实时状态与技能分布。
+                    管理店内技师团队
                 </p>
             </div>
             <button v-if="activeTab === 'overview' && canManageTechnicians" @click="openCreateModal"
@@ -315,49 +315,41 @@ const closeSkillsModal = () => {
             <!-- Technicians Grid -->
             <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 <div v-for="tech in technicians" :key="tech.id"
-                    class="group relative flex flex-col bg-base-100 border border-base-200 rounded-2xl p-0 hover:border-primary/30 hover:shadow-lg transition-all duration-300 overflow-hidden">
+                    class="group bg-base-100 border border-base-200 rounded-xl overflow-hidden hover:shadow-md hover:border-primary/20 transition-all duration-200">
 
-                    <!-- Decorative Header Background -->
-                    <div class="h-20 bg-linear-to-r from-primary/10 to-primary/5 w-full"></div>
+                    <!-- Simplified Header -->
+                    <div class="h-16 bg-gradient-to-br from-primary/5 to-transparent"></div>
 
                     <!-- Avatar & Info -->
-                    <div class="flex flex-col items-center text-center -mt-10 px-6 pb-4">
-                        <div class="mb-3 ring-4 ring-base-100 shadow-md rounded-full bg-base-100 p-1">
+                    <div class="flex flex-col items-center text-center -mt-12 px-6">
+                        <div class="mb-4">
                             <Avatar :name="tech.name" :src="tech.avatar_url" size="xl" class="w-20 h-20 text-xl" />
                         </div>
 
-                        <div class="flex items-center gap-2 mb-1">
-                            <h3 class="text-lg font-bold text-base-content tracking-tight">
-                                {{ tech.name }}
-                            </h3>
-                        </div>
-
-                        <!-- Order Stats -->
-                        <div
-                            class="flex items-center gap-2 mt-4 text-sm justify-between bg-base-200/40 rounded-xl p-3 w-full border border-base-200/60">
-                            <div class="flex flex-col items-center flex-1">
-                                <span
-                                    class="text-xs text-base-content/50 mb-0.5 uppercase tracking-wider font-semibold">待服务</span>
-                                <span class="text-lg font-bold text-primary">{{ tech.pending_orders || 0 }}</span>
-                            </div>
-                            <div class="w-px h-8 bg-base-300"></div>
-                            <div class="flex flex-col items-center flex-1">
-                                <span
-                                    class="text-xs text-base-content/50 mb-0.5 uppercase tracking-wider font-semibold">总接单</span>
-                                <span class="text-lg font-bold text-base-content/80">{{ tech.total_orders || 0 }}</span>
+                        <div class="mb-4">
+                            <h3 class="text-lg font-semibold text-base-content mb-1">{{ tech.name }}</h3>
+                            <div class="flex items-center gap-4 text-sm text-base-content/60">
+                                <span class="flex items-center gap-1">
+                                    <Clock class="w-3 h-3" />
+                                    {{ tech.pending_orders || 0 }} 待服务
+                                </span>
+                                <span class="flex items-center gap-1">
+                                    <CheckCircle class="w-3 h-3" />
+                                    {{ tech.total_orders || 0 }} 已完成
+                                </span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Skills -->
-                    <div class="flex-1 px-6 pb-4">
+                    <div class="px-6 pb-4">
                         <div class="flex flex-wrap gap-1.5 justify-center">
-                            <span v-for="(skill, idx) in tech.skill_names.slice(0, 5)" :key="idx"
-                                class="badge badge-sm badge-ghost bg-base-200/50 border-base-200 text-xs font-normal">
+                            <span v-for="(skill, idx) in tech.skill_names.slice(0, 4)" :key="idx"
+                                class="badge badge-sm badge-ghost">
                                 {{ skill }}
                             </span>
-                            <span v-if="tech.skill_names.length > 5" class="badge badge-sm badge-ghost text-xs">
-                                +{{ tech.skill_names.length - 5 }}
+                            <span v-if="tech.skill_names.length > 4" class="badge badge-sm badge-ghost">
+                                +{{ tech.skill_names.length - 4 }}
                             </span>
                             <span v-if="!tech.skill_names || tech.skill_names.length === 0"
                                 class="text-xs text-base-content/40 italic">
@@ -367,18 +359,17 @@ const closeSkillsModal = () => {
                     </div>
 
                     <!-- Actions -->
-                    <div class="p-4 border-t border-base-100 bg-base-50/50 flex gap-3 mt-auto">
-                        <button @click="handleSchedule(tech)"
-                            class="btn btn-primary btn-sm flex-1 font-medium shadow-sm hover:shadow-md transition-shadow">
+                    <div class="p-4 border-t border-base-200/50 bg-base-50/30 flex gap-2 mt-auto">
+                        <button @click="handleSchedule(tech)" class="btn btn-primary btn-sm flex-1">
                             查看预约
                         </button>
 
                         <button v-if="canManageTechnicians" @click="handleEdit(tech)"
-                            class="btn btn-square btn-ghost btn-sm hover:bg-base-200">
+                            class="btn btn-ghost btn-sm btn-square">
                             <Pencil class="w-4 h-4" />
                         </button>
                         <button v-if="canManageTechnicians" @click="handleDelete(tech)"
-                            class="btn btn-square btn-ghost btn-sm hover:bg-error/10 text-error">
+                            class="btn btn-ghost btn-sm btn-square text-error hover:bg-error/10">
                             <Trash2 class="w-4 h-4" />
                         </button>
                     </div>
