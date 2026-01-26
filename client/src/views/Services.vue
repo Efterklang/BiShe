@@ -7,13 +7,13 @@ import {
     deleteService,
 } from "../api/services";
 import { usePermission } from "../composables/usePermission";
-import { 
-    Plus, 
-    Image, 
-    Clock, 
-    Edit, 
-    Trash2, 
-    X, 
+import {
+    Plus,
+    Image,
+    Clock,
+    Edit,
+    Trash2,
+    X,
     Package,
     PackagePlus,
     Archive
@@ -117,7 +117,7 @@ const handleSubmit = async () => {
         <!-- Header Section -->
         <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
             <div>
-                <h1 class="text-2xl font-bold tracking-tight text-base-content">
+                <h1 class="text-2xl font-bold text-base-content">
                     服务项目
                 </h1>
                 <p class="mt-1 text-base-content/60">
@@ -159,14 +159,16 @@ const handleSubmit = async () => {
                 <div class="p-5 flex flex-col grow">
                     <div class="flex justify-between items-start mb-3">
                         <div>
-                            <h3 class="font-semibold text-lg line-clamp-1" :title="service.name"> {{ service.name }} </h3>
+                            <h3 class="font-semibold text-lg line-clamp-1" :title="service.name"> {{ service.name }}
+                            </h3>
                             <div class="flex items-center gap-1.5 mt-1 text-sm text-base-content/60">
                                 <Clock class="w-3.5 h-3.5" />
                                 <span>{{ service.duration }} 分钟</span>
                             </div>
                         </div>
                         <div class="text-right shrink-0">
-                            <span class="block text-xl font-bold text-base-content font-mono">¥{{ service.price }}</span>
+                            <span class="block text-xl font-bold text-base-content font-mono">¥{{ service.price
+                                }}</span>
                         </div>
                     </div>
 
@@ -251,7 +253,8 @@ const handleSubmit = async () => {
                         <div>
                             <label class="block text-sm font-medium text-base-content/80 mb-1">服务图片URL</label>
                             <div class="relative">
-                                <input type="url" v-model="formData.image_url" placeholder="https://example.com/image.jpg"
+                                <input type="url" v-model="formData.image_url"
+                                    placeholder="https://example.com/image.jpg"
                                     class="input input-bordered w-full pl-10 bg-base-100" />
                                 <Image class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
                             </div>

@@ -3,7 +3,7 @@
 		<!-- Header Section -->
 		<div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
 			<div>
-				<h1 class="text-2xl font-bold tracking-tight text-base-content">
+				<h1 class="text-2xl font-bold text-base-content">
 					实体商品管理
 				</h1>
 				<p class="mt-1 text-base-content/60">
@@ -86,7 +86,8 @@
 				</figure>
 				<div class="card-body p-5">
 					<div class="flex items-start justify-between">
-						<h2 class="card-title text-base-content text-lg line-clamp-1" :title="product.name">{{ product.name }}</h2>
+						<h2 class="card-title text-base-content text-lg line-clamp-1" :title="product.name">{{
+							product.name }}</h2>
 						<div class="badge badge-sm" :class="product.is_active ? 'badge-success' : 'badge-ghost'">
 							{{ product.is_active ? "上架" : "下架" }}
 						</div>
@@ -143,7 +144,8 @@
 							出库
 						</button>
 						<div v-if="canManageProducts" class="flex gap-1 ml-auto">
-							<button @click="handleEdit(product)" class="btn btn-sm btn-ghost btn-square text-base-content/60 hover:text-primary">
+							<button @click="handleEdit(product)"
+								class="btn btn-sm btn-ghost btn-square text-base-content/60 hover:text-primary">
 								<Edit class="w-4 h-4" />
 							</button>
 							<button @click="handleDelete(product.id)"
@@ -158,7 +160,8 @@
 
 		<!-- Create/Edit Modal -->
 		<dialog ref="createModalRef" class="modal">
-			<div class="modal-box max-w-2xl bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden">
+			<div
+				class="modal-box max-w-2xl bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden">
 				<!-- Modal Header -->
 				<div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
 					<h3 class="font-bold text-lg flex items-center gap-2">
@@ -216,9 +219,11 @@
 									<span class="label-text font-medium">商品图片URL</span>
 								</label>
 								<div class="relative">
-									<input v-model="formData.image_url" type="url" placeholder="https://example.com/image.jpg"
+									<input v-model="formData.image_url" type="url"
+										placeholder="https://example.com/image.jpg"
 										class="input input-bordered w-full pl-10" />
-									<Image class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
+									<Image
+										class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
 								</div>
 							</div>
 
@@ -233,7 +238,8 @@
 							<div class="col-span-2">
 								<label class="label cursor-pointer justify-start gap-3 p-0">
 									<span class="label-text font-medium">立即上架</span>
-									<input v-model="formData.is_active" type="checkbox" class="toggle toggle-success toggle-sm" />
+									<input v-model="formData.is_active" type="checkbox"
+										class="toggle toggle-success toggle-sm" />
 								</label>
 							</div>
 						</div>
@@ -254,10 +260,12 @@
 
 		<!-- Stock Change Modal -->
 		<dialog ref="stockModalRef" class="modal">
-			<div class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-md">
+			<div
+				class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-md">
 				<div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
 					<h3 class="font-bold text-lg flex items-center gap-2">
-						<component :is="stockChangeType === 'restock' ? ArrowDownToLine : ArrowUpFromLine" class="w-5 h-5" :class="stockChangeType === 'restock' ? 'text-success' : 'text-warning'" />
+						<component :is="stockChangeType === 'restock' ? ArrowDownToLine : ArrowUpFromLine"
+							class="w-5 h-5" :class="stockChangeType === 'restock' ? 'text-success' : 'text-warning'" />
 						{{ stockChangeType === "restock" ? "商品入库" : "商品出库" }}
 					</h3>
 					<button @click="closeStockModal" class="btn btn-ghost btn-sm btn-square text-base-content/60">
@@ -311,7 +319,8 @@
 
 		<!-- Inventory History Modal -->
 		<dialog ref="inventoryModalRef" class="modal">
-			<div class="modal-box max-w-4xl bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden h-[80vh] flex flex-col">
+			<div
+				class="modal-box max-w-4xl bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden h-[80vh] flex flex-col">
 				<div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
 					<h3 class="font-bold text-lg flex items-center gap-2">
 						<History class="w-5 h-5 text-primary" />
@@ -323,11 +332,13 @@
 				</div>
 
 				<div class="p-6 overflow-y-auto flex-1">
-					<div v-if="selectedProduct" class="mb-6 p-4 bg-base-200/50 rounded-lg border border-base-200 flex justify-between items-center">
+					<div v-if="selectedProduct"
+						class="mb-6 p-4 bg-base-200/50 rounded-lg border border-base-200 flex justify-between items-center">
 						<div>
 							<div class="font-semibold text-lg">{{ selectedProduct.name }}</div>
 							<div class="text-sm text-base-content/60 mt-1">
-								当前库存: <span class="font-mono font-bold text-base-content">{{ selectedProduct.stock }}</span>
+								当前库存: <span class="font-mono font-bold text-base-content">{{ selectedProduct.stock
+									}}</span>
 							</div>
 						</div>
 					</div>
@@ -336,7 +347,8 @@
 						<span class="loading loading-spinner loading-lg text-primary"></span>
 					</div>
 
-					<div v-else-if="inventoryLogs.length === 0" class="flex flex-col items-center justify-center py-12 text-center">
+					<div v-else-if="inventoryLogs.length === 0"
+						class="flex flex-col items-center justify-center py-12 text-center">
 						<History class="w-12 h-12 text-base-content/20 mb-3" />
 						<p class="text-base-content/60">暂无库存变动记录</p>
 					</div>
@@ -411,16 +423,16 @@ import {
 	getProductInventoryLogs,
 } from "../api/products";
 import { usePermission } from "../composables/usePermission";
-import { 
-    Plus, 
-    Package, 
-    Image, 
-    History, 
-    ArrowDownToLine, 
-    ArrowUpFromLine, 
-    Edit, 
-    Trash2, 
-    X 
+import {
+	Plus,
+	Package,
+	Image,
+	History,
+	ArrowDownToLine,
+	ArrowUpFromLine,
+	Edit,
+	Trash2,
+	X
 } from 'lucide-vue-next';
 
 const { canManageProducts } = usePermission();
@@ -645,6 +657,7 @@ const formatDate = (dateString) => {
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 }
+
 .line-clamp-2 {
 	display: -webkit-box;
 	-webkit-line-clamp: 2;

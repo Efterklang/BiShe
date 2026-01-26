@@ -7,14 +7,14 @@ import {
 } from "../api/appointments";
 import AppointmentWizard from "../components/AppointmentWizard.vue";
 import Avatar from "../components/Avatar.vue";
-import { 
-    Plus, 
-    Calendar, 
-    Clock, 
-    CheckCircle2, 
-    XCircle, 
-    AlertCircle, 
-    Wallet 
+import {
+    Plus,
+    Calendar,
+    Clock,
+    CheckCircle2,
+    XCircle,
+    AlertCircle,
+    Wallet
 } from 'lucide-vue-next';
 
 const appointments = ref([]);
@@ -243,7 +243,7 @@ const showDetails = (appt) => {
         <!-- Header Section -->
         <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
             <div>
-                <h1 class="text-2xl font-bold tracking-tight text-base-content">
+                <h1 class="text-2xl font-bold text-base-content">
                     预约管理
                 </h1>
                 <p class="mt-1 text-base-content/60">
@@ -271,8 +271,9 @@ const showDetails = (appt) => {
                 <div v-if="loading" class="flex justify-center py-16">
                     <span class="loading loading-spinner loading-lg text-primary"></span>
                 </div>
-                
-                <div v-else-if="appointments.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
+
+                <div v-else-if="appointments.length === 0"
+                    class="flex flex-col items-center justify-center py-16 text-center">
                     <div class="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mb-4">
                         <Calendar class="w-8 h-8 text-base-content/40" />
                     </div>
@@ -310,7 +311,7 @@ const showDetails = (appt) => {
                                         <Avatar :name="getTechName(appt.technician)" size="xs" />
                                         <span class="text-base-content/80 text-sm">{{
                                             getTechName(appt.technician)
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                 </td>
                                 <td>
@@ -332,10 +333,13 @@ const showDetails = (appt) => {
                                 </td>
                                 <td>
                                     <span :class="getStatusBadge(appt.status || appt.Status)">
-                                        <CheckCircle2 v-if="(appt.status || appt.Status) === 'completed'" class="w-3 h-3" />
+                                        <CheckCircle2 v-if="(appt.status || appt.Status) === 'completed'"
+                                            class="w-3 h-3" />
                                         <Clock v-else-if="(appt.status || appt.Status) === 'pending'" class="w-3 h-3" />
-                                        <AlertCircle v-else-if="(appt.status || appt.Status) === 'waiting'" class="w-3 h-3" />
-                                        <XCircle v-else-if="(appt.status || appt.Status) === 'cancelled'" class="w-3 h-3" />
+                                        <AlertCircle v-else-if="(appt.status || appt.Status) === 'waiting'"
+                                            class="w-3 h-3" />
+                                        <XCircle v-else-if="(appt.status || appt.Status) === 'cancelled'"
+                                            class="w-3 h-3" />
                                         {{ getStatusText(appt.status || appt.Status) }}
                                     </span>
                                 </td>
@@ -347,13 +351,12 @@ const showDetails = (appt) => {
                                         <button @click="showDetails(appt)" class="btn btn-ghost btn-xs">
                                             详情
                                         </button>
-                                        <button v-if="(appt.status || appt.Status) === 'pending'" 
-                                            @click="handleComplete(appt)" 
-                                            class="btn btn-success btn-xs text-white">
+                                        <button v-if="(appt.status || appt.Status) === 'pending'"
+                                            @click="handleComplete(appt)" class="btn btn-success btn-xs text-white">
                                             完成
                                         </button>
-                                        <button v-if="['pending', 'waiting'].includes(appt.status || appt.Status)" 
-                                            @click="handleCancel(appt.id)" 
+                                        <button v-if="['pending', 'waiting'].includes(appt.status || appt.Status)"
+                                            @click="handleCancel(appt.id)"
                                             class="btn btn-error btn-ghost btn-xs text-error hover:bg-error/10">
                                             取消
                                         </button>
@@ -385,11 +388,13 @@ const showDetails = (appt) => {
                     <!-- Info -->
                     <div class="flex justify-between items-center bg-base-200/50 p-4 rounded-xl border border-base-200">
                         <span class="text-base-content/70">订单金额</span>
-                        <span class="text-2xl font-bold font-mono">¥{{ currentPaymentAppt.actual_price || currentPaymentAppt.ActualPrice }}</span>
+                        <span class="text-2xl font-bold font-mono">¥{{ currentPaymentAppt.actual_price ||
+                            currentPaymentAppt.ActualPrice }}</span>
                     </div>
                     <div class="text-sm flex justify-between px-1">
                         <span class="text-base-content/60">会员当前余额</span>
-                        <span class="font-bold text-primary font-mono">¥{{ currentPaymentAppt.member?.balance || currentPaymentAppt.member?.Balance || 0 }}</span>
+                        <span class="font-bold text-primary font-mono">¥{{ currentPaymentAppt.member?.balance ||
+                            currentPaymentAppt.member?.Balance || 0 }}</span>
                     </div>
 
                     <div class="divider my-0"></div>
@@ -398,19 +403,25 @@ const showDetails = (appt) => {
                     <div class="form-control">
                         <label class="label pt-0"><span class="label-text font-medium">选择支付方式</span></label>
                         <div class="grid grid-cols-3 gap-3">
-                            <label class="cursor-pointer border border-base-300 p-3 rounded-lg hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-2 text-center"
+                            <label
+                                class="cursor-pointer border border-base-300 p-3 rounded-lg hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-2 text-center"
                                 :class="{ 'border-primary bg-primary/5 ring-1 ring-primary': paymentMethod === 'balance' }">
-                                <input type="radio" name="payment" class="hidden" value="balance" v-model="paymentMethod" />
+                                <input type="radio" name="payment" class="hidden" value="balance"
+                                    v-model="paymentMethod" />
                                 <span class="text-sm font-medium">余额支付</span>
                             </label>
-                            <label class="cursor-pointer border border-base-300 p-3 rounded-lg hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-2 text-center"
+                            <label
+                                class="cursor-pointer border border-base-300 p-3 rounded-lg hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-2 text-center"
                                 :class="{ 'border-primary bg-primary/5 ring-1 ring-primary': paymentMethod === 'cash' }">
-                                <input type="radio" name="payment" class="hidden" value="cash" v-model="paymentMethod" />
+                                <input type="radio" name="payment" class="hidden" value="cash"
+                                    v-model="paymentMethod" />
                                 <span class="text-sm font-medium">现金/其他</span>
                             </label>
-                            <label class="cursor-pointer border border-base-300 p-3 rounded-lg hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-2 text-center"
+                            <label
+                                class="cursor-pointer border border-base-300 p-3 rounded-lg hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-2 text-center"
                                 :class="{ 'border-primary bg-primary/5 ring-1 ring-primary': paymentMethod === 'mixed' }">
-                                <input type="radio" name="payment" class="hidden" value="mixed" v-model="paymentMethod" />
+                                <input type="radio" name="payment" class="hidden" value="mixed"
+                                    v-model="paymentMethod" />
                                 <span class="text-sm font-medium">组合支付</span>
                             </label>
                         </div>
@@ -419,21 +430,23 @@ const showDetails = (appt) => {
                     <!-- Amount Inputs -->
                     <div class="grid grid-cols-2 gap-4 bg-base-100 p-1">
                         <div class="form-control">
-                            <label class="label"><span class="label-text text-xs uppercase font-bold text-base-content/50">余额扣除</span></label>
+                            <label class="label"><span
+                                    class="label-text text-xs uppercase font-bold text-base-content/50">余额扣除</span></label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40">¥</span>
                                 <input type="number" v-model.number="paymentBalance" @input="onBalanceInput"
-                                    :disabled="paymentMethod === 'cash'" class="input input-bordered w-full pl-7 font-mono" step="0.01"
-                                    min="0" />
+                                    :disabled="paymentMethod === 'cash'"
+                                    class="input input-bordered w-full pl-7 font-mono" step="0.01" min="0" />
                             </div>
                         </div>
                         <div class="form-control">
-                            <label class="label"><span class="label-text text-xs uppercase font-bold text-base-content/50">现金支付</span></label>
+                            <label class="label"><span
+                                    class="label-text text-xs uppercase font-bold text-base-content/50">现金支付</span></label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40">¥</span>
                                 <input type="number" v-model.number="paymentCash" @input="onCashInput"
-                                    :disabled="paymentMethod === 'balance'" class="input input-bordered w-full pl-7 font-mono" step="0.01"
-                                    min="0" />
+                                    :disabled="paymentMethod === 'balance'"
+                                    class="input input-bordered w-full pl-7 font-mono" step="0.01" min="0" />
                             </div>
                         </div>
                     </div>

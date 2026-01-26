@@ -101,7 +101,7 @@ const getAvatarTextColor = (memberId) => {
     <!-- Header Section -->
     <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-base-content">会员管理</h1>
+        <h1 class="text-2xl font-bold text-base-content">会员管理</h1>
         <p class="mt-1 text-base-content/60">
           查看会员列表、等级及消费记录，管理客户关系。
         </p>
@@ -138,11 +138,11 @@ const getAvatarTextColor = (memberId) => {
             <tr v-else-if="members.length === 0">
               <td colspan="9" class="px-6 py-16 text-center">
                 <div class="flex flex-col items-center justify-center">
-                    <div class="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mb-4">
-                        <Users class="w-8 h-8 text-base-content/40" />
-                    </div>
-                    <h3 class="text-lg font-bold text-base-content">暂无会员数据</h3>
-                    <p class="text-base-content/60 mt-1">点击右上角按钮注册新会员</p>
+                  <div class="w-16 h-16 bg-base-200 rounded-full flex items-center justify-center mb-4">
+                    <Users class="w-8 h-8 text-base-content/40" />
+                  </div>
+                  <h3 class="text-lg font-bold text-base-content">暂无会员数据</h3>
+                  <p class="text-base-content/60 mt-1">点击右上角按钮注册新会员</p>
                 </div>
               </td>
             </tr>
@@ -166,7 +166,8 @@ const getAvatarTextColor = (memberId) => {
                   {{ member.invitation_code || member.InvitationCode }}
                 </code>
               </td>
-              <td class="px-6 py-4 text-base-content/50 font-mono text-xs">{{ member.referrer_id || member.ReferrerID || '-' }}</td>
+              <td class="px-6 py-4 text-base-content/50 font-mono text-xs">{{ member.referrer_id || member.ReferrerID ||
+                '-' }}</td>
               <td class="px-6 py-4 text-right">
                 <button class="btn btn-ghost btn-xs">详情</button>
               </td>
@@ -175,9 +176,10 @@ const getAvatarTextColor = (memberId) => {
         </table>
       </div>
       <!-- Pagination or count could go here -->
-      <div class="bg-base-50 px-6 py-3 border-t border-base-200 text-xs text-base-content/60 flex justify-between items-center"
-          v-if="members.length > 0">
-          <span>共 {{ members.length }} 位会员</span>
+      <div
+        class="bg-base-50 px-6 py-3 border-t border-base-200 text-xs text-base-content/60 flex justify-between items-center"
+        v-if="members.length > 0">
+        <span>共 {{ members.length }} 位会员</span>
       </div>
     </div>
 
@@ -202,16 +204,16 @@ const getAvatarTextColor = (memberId) => {
               <label class="label">
                 <span class="label-text font-medium">姓名</span>
               </label>
-              <input type="text" v-model="formData.name" placeholder="请输入会员姓名" class="input input-bordered w-full bg-base-100"
-                required />
+              <input type="text" v-model="formData.name" placeholder="请输入会员姓名"
+                class="input input-bordered w-full bg-base-100" required />
             </div>
 
             <div class="form-control">
               <label class="label">
                 <span class="label-text font-medium">手机号</span>
               </label>
-              <input type="tel" v-model="formData.phone" placeholder="请输入手机号" class="input input-bordered w-full bg-base-100"
-                required />
+              <input type="tel" v-model="formData.phone" placeholder="请输入手机号"
+                class="input input-bordered w-full bg-base-100" required />
             </div>
 
             <div class="form-control">

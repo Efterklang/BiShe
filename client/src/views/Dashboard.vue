@@ -133,7 +133,7 @@ const formatDateLabel = computed(() => {
     <div class="max-w-7xl mx-auto space-y-8">
         <!-- Header -->
         <div>
-            <h1 class="text-3xl font-bold tracking-tight text-base-content">
+            <h1 class="text-3xl font-bold text-base-content">
                 经营概览
             </h1>
             <p class="mt-2 text-base-content/60">
@@ -255,7 +255,7 @@ const formatDateLabel = computed(() => {
                                     {{ service.service_name }}</span>
                                 <span class="text-base-content/60">{{ service.order_count }}单 / ¥{{
                                     formatNumber(service.total_revenue)
-                                    }}</span>
+                                }}</span>
                             </div>
                             <div class="w-full bg-base-200 rounded-full h-2">
                                 <div class="bg-primary h-2 rounded-full transition-all" :style="{
@@ -320,7 +320,7 @@ const formatDateLabel = computed(() => {
                                         {{ product.product_name }}</span>
                                     <span class="text-base-content/60">{{ product.sales_count }}件 / ¥{{
                                         formatNumber(product.total_revenue)
-                                        }}</span>
+                                    }}</span>
                                 </div>
                                 <div class="w-full bg-base-200 rounded-full h-2">
                                     <div class="bg-secondary h-2 rounded-full transition-all" :style="{

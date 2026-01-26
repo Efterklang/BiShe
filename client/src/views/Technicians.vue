@@ -271,7 +271,7 @@ const closeSkillsModal = () => {
         <!-- Header Section -->
         <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
             <div>
-                <h1 class="text-2xl font-bold tracking-tight text-base-content">
+                <h1 class="text-2xl font-bold text-base-content">
                     技师管理
                 </h1>
                 <p class="mt-1 text-base-content/60">
@@ -318,7 +318,7 @@ const closeSkillsModal = () => {
                     class="group bg-base-100 border border-base-200 rounded-xl overflow-hidden hover:shadow-md hover:border-primary/20 transition-all duration-200">
 
                     <!-- Simplified Header -->
-                    <div class="h-16 bg-gradient-to-br from-primary/5 to-transparent"></div>
+                    <div class="h-16 bg-linear-to-br from-primary/5 to-transparent"></div>
 
                     <!-- Avatar & Info -->
                     <div class="flex flex-col items-center text-center -mt-12 px-6">

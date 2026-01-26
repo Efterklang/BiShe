@@ -61,7 +61,7 @@ const getMemberName = (id) => members.value.find(m => m.id === id)?.name || `会
     <!-- Header Section -->
     <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
       <div>
-        <h1 class="text-3xl font-bold tracking-tight text-base-content flex items-center gap-3">
+        <h1 class="text-3xl font-bold text-base-content flex items-center gap-3">
           <History class="w-8 h-8 text-primary" />
           历史订单
         </h1>
