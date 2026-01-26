@@ -11,19 +11,18 @@ import { getAppointments } from "../api/appointments";
 import TechnicianSchedule from "../components/TechnicianSchedule.vue";
 import Avatar from "../components/Avatar.vue";
 import { usePermission } from "../composables/usePermission";
-import { 
-    Plus, 
-    Users, 
-    Star, 
-    X, 
-    Calendar, 
-    Clock, 
-    Banknote, 
-    ChevronLeft, 
+import {
+    Plus,
+    Users,
+    Star,
+    X,
+    Calendar,
+    Clock,
+    Banknote,
+    ChevronLeft,
     ChevronRight,
     UserPlus,
     User,
-    CheckCircle2,
     Briefcase
 } from 'lucide-vue-next';
 import "cally";
@@ -349,7 +348,8 @@ const closeSkillsModal = () => {
                     <!-- Skills -->
                     <div class="flex-1">
                         <div class="flex flex-wrap gap-2 justify-center">
-                            <span v-for="(skill, idx) in tech.skill_names" :key="idx" class="badge badge-outline text-xs">
+                            <span v-for="(skill, idx) in tech.skill_names" :key="idx"
+                                class="badge badge-outline text-xs">
                                 {{ skill }}
                             </span>
                         </div>
@@ -362,13 +362,17 @@ const closeSkillsModal = () => {
                         </button>
                         <div class="dropdown dropdown-top dropdown-end">
                             <div tabindex="0" role="button" class="btn btn-square btn-outline btn-sm">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
                                 </svg>
                             </div>
-                            <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-32 border border-base-200">
+                            <ul tabindex="0"
+                                class="dropdown-content z-1 menu p-2 shadow bg-base-100 rounded-box w-32 border border-base-200">
                                 <li v-if="canManageTechnicians"><a @click="handleEdit(tech)">编辑</a></li>
-                                <li v-if="canManageTechnicians"><a @click="handleDelete(tech)" class="text-error">删除</a></li>
+                                <li v-if="canManageTechnicians"><a @click="handleDelete(tech)" class="text-error">删除</a>
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -417,9 +421,10 @@ const closeSkillsModal = () => {
                             <!-- Selected Skills Tags -->
                             <div class="flex flex-wrap gap-2 mb-2" v-if="formData.skills.length > 0">
                                 <div v-for="serviceId in formData.skills" :key="serviceId"
-                                     class="badge badge-primary gap-1 cursor-pointer hover:opacity-80">
+                                    class="badge badge-primary gap-1 cursor-pointer hover:opacity-80">
                                     {{ getSkillName(serviceId) }}
-                                    <button type="button" @click="toggleSkill(serviceId)" class="btn btn-xs btn-circle btn-ghost">
+                                    <button type="button" @click="toggleSkill(serviceId)"
+                                        class="btn btn-xs btn-circle btn-ghost">
                                         ✕
                                     </button>
                                 </div>
@@ -472,7 +477,8 @@ const closeSkillsModal = () => {
 
         <!-- Skills Selection Modal -->
         <dialog ref="skillsModalRef" class="modal">
-            <div class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-4xl">
+            <div
+                class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-4xl">
                 <!-- Modal Header -->
                 <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
                     <div>
@@ -499,17 +505,17 @@ const closeSkillsModal = () => {
                     </div>
 
                     <!-- Skills Grid -->
-                    <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto pr-2">
+                    <div v-else
+                        class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto pr-2">
                         <div v-for="service in services" :key="service.id"
-                             class="card bg-base-100 border-2 border-base-300 hover:border-primary transition-all cursor-pointer"
-                             :class="{ 'border-primary bg-primary/5': isSkillSelected(service.id) }"
-                             @click="toggleSkill(service.id)">
+                            class="card bg-base-100 border-2 border-base-300 hover:border-primary transition-all cursor-pointer"
+                            :class="{ 'border-primary bg-primary/5': isSkillSelected(service.id) }"
+                            @click="toggleSkill(service.id)">
                             <div class="card-body p-4">
                                 <div class="flex items-start gap-3">
-                                    <input type="checkbox"
-                                           :checked="isSkillSelected(service.id)"
-                                           @click.stop="toggleSkill(service.id)"
-                                           class="checkbox checkbox-primary mt-1 checkbox-sm" />
+                                    <input type="checkbox" :checked="isSkillSelected(service.id)"
+                                        @click.stop="toggleSkill(service.id)"
+                                        class="checkbox checkbox-primary mt-1 checkbox-sm" />
                                     <div class="flex-1">
                                         <div class="font-semibold text-base-content text-sm">
                                             {{ service.name }}
@@ -554,8 +560,7 @@ const closeSkillsModal = () => {
                             查看指定日期的预约情况
                         </p>
                     </div>
-                    <button @click="closeAppointmentModal"
-                        class="btn btn-ghost btn-sm btn-square text-base-content/60">
+                    <button @click="closeAppointmentModal" class="btn btn-ghost btn-sm btn-square text-base-content/60">
                         <X class="w-5 h-5" />
                     </button>
                 </div>
@@ -567,10 +572,10 @@ const closeSkillsModal = () => {
                         <label class="block text-sm font-medium text-base-content/80 mb-2">选择日期</label>
                         <div class="relative">
                             <input type="text" :value="formatDisplayDate(selectedAppointmentDate)" readonly
-                                class="input input-bordered w-full bg-base-100 cursor-pointer pl-10" placeholder="点击选择日期"
-                                @click="calendarOpen = !calendarOpen" />
+                                class="input input-bordered w-full bg-base-100 cursor-pointer pl-10"
+                                placeholder="点击选择日期" @click="calendarOpen = !calendarOpen" />
                             <Calendar class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
-                            
+
                             <calendar-date v-if="calendarOpen"
                                 class="cally absolute top-full mt-2 z-10 bg-base-100 border border-base-300 shadow-lg rounded-box"
                                 :value="selectedAppointmentDate" @select="handleDateSelect" @change="handleDateChange"
@@ -596,7 +601,8 @@ const closeSkillsModal = () => {
                         </div>
 
                         <div v-else class="space-y-4">
-                            <h4 class="font-semibold flex items-center gap-2 mb-4 text-sm uppercase tracking-wider text-base-content/60">
+                            <h4
+                                class="font-semibold flex items-center gap-2 mb-4 text-sm uppercase tracking-wider text-base-content/60">
                                 预约列表 ({{ technicianAppointments.length }})
                             </h4>
 
@@ -630,7 +636,8 @@ const closeSkillsModal = () => {
                                     <div class="flex items-center gap-4 text-sm text-base-content/70">
                                         <div class="flex items-center gap-1.5">
                                             <Clock class="w-3.5 h-3.5" />
-                                            {{ appt.start_time.substring(11, 16) }} - {{ appt.end_time.substring(11, 16) }}
+                                            {{ appt.start_time.substring(11, 16) }} - {{ appt.end_time.substring(11, 16)
+                                            }}
                                         </div>
                                         <div class="flex items-center gap-1.5">
                                             <Banknote class="w-3.5 h-3.5" />
