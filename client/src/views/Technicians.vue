@@ -23,7 +23,9 @@ import {
     ChevronRight,
     UserPlus,
     User,
-    Briefcase
+    Briefcase,
+    Pencil,
+    Trash2
 } from 'lucide-vue-next';
 import "cally";
 
@@ -316,7 +318,7 @@ const closeSkillsModal = () => {
                     class="group relative flex flex-col bg-base-100 border border-base-200 rounded-2xl p-0 hover:border-primary/30 hover:shadow-lg transition-all duration-300 overflow-hidden">
 
                     <!-- Decorative Header Background -->
-                    <div class="h-20 bg-gradient-to-r from-primary/10 to-primary/5 w-full"></div>
+                    <div class="h-20 bg-linear-to-r from-primary/10 to-primary/5 w-full"></div>
 
                     <!-- Avatar & Info -->
                     <div class="flex flex-col items-center text-center -mt-10 px-6 pb-4">
@@ -349,8 +351,6 @@ const closeSkillsModal = () => {
 
                     <!-- Skills -->
                     <div class="flex-1 px-6 pb-4">
-                        <div class="text-xs font-medium text-base-content/40 mb-2 uppercase tracking-wider text-center">
-                            擅长项目</div>
                         <div class="flex flex-wrap gap-1.5 justify-center">
                             <span v-for="(skill, idx) in tech.skill_names.slice(0, 5)" :key="idx"
                                 class="badge badge-sm badge-ghost bg-base-200/50 border-base-200 text-xs font-normal">
@@ -373,21 +373,14 @@ const closeSkillsModal = () => {
                             查看预约
                         </button>
 
-                        <div class="dropdown dropdown-top dropdown-end">
-                            <div tabindex="0" role="button" class="btn btn-square btn-ghost btn-sm hover:bg-base-200">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-                                </svg>
-                            </div>
-                            <ul tabindex="0"
-                                class="dropdown-content z-1 menu p-1 shadow-lg bg-base-100 rounded-xl w-32 border border-base-100 text-sm">
-                                <li v-if="canManageTechnicians"><a @click="handleEdit(tech)" class="py-2">编辑资料</a></li>
-                                <li v-if="canManageTechnicians"><a @click="handleDelete(tech)"
-                                        class="text-error hover:bg-error/10 py-2">删除技师</a></li>
-                            </ul>
-                        </div>
+                        <button v-if="canManageTechnicians" @click="handleEdit(tech)"
+                            class="btn btn-square btn-ghost btn-sm hover:bg-base-200">
+                            <Pencil class="w-4 h-4" />
+                        </button>
+                        <button v-if="canManageTechnicians" @click="handleDelete(tech)"
+                            class="btn btn-square btn-ghost btn-sm hover:bg-error/10 text-error">
+                            <Trash2 class="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
             </div>
