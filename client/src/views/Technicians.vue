@@ -8,7 +8,6 @@ import {
 } from "../api/technicians";
 import { getServices } from "../api/services";
 import { getAppointments } from "../api/appointments";
-import TechnicianSchedule from "../components/TechnicianSchedule.vue";
 import Avatar from "../components/Avatar.vue";
 import { usePermission } from "../composables/usePermission";
 import {
@@ -31,7 +30,6 @@ import "cally";
 
 const { canManageTechnicians } = usePermission();
 
-const activeTab = ref("overview");
 const technicians = ref([]);
 const loading = ref(true);
 
@@ -272,28 +270,19 @@ const closeSkillsModal = () => {
         <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-base-content">
-                    技师管理
+                    技师总览
                 </h1>
                 <p class="mt-1 text-base-content/60">
-                    管理店内技师团队
+                    管理和查看所有技师的信息、技能和状态。
                 </p>
             </div>
-            <button v-if="activeTab === 'overview' && canManageTechnicians" @click="openCreateModal"
-                class="btn btn-primary">
+            <button v-if="canManageTechnicians" @click="openCreateModal" class="btn btn-primary">
                 <Plus class="w-4 h-4 mr-1" />
                 添加技师
             </button>
         </div>
 
-        <!-- Tabs -->
-        <div role="tablist" class="tabs tabs-bordered mb-6">
-            <a role="tab" class="tab" :class="{ 'tab-active': activeTab === 'overview' }"
-                @click="activeTab = 'overview'">技师总览</a>
-            <a role="tab" class="tab" :class="{ 'tab-active': activeTab === 'schedule' }"
-                @click="activeTab = 'schedule'">排班管理</a>
-        </div>
-
-        <div v-if="activeTab === 'overview'">
+        <div>
             <!-- Loading State -->
             <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 <div v-for="i in 4" :key="i" class="h-64 rounded-xl border border-base-300 bg-base-200 animate-pulse">
@@ -377,9 +366,7 @@ const closeSkillsModal = () => {
             </div>
         </div>
 
-        <div v-else-if="activeTab === 'schedule'">
-            <TechnicianSchedule :selected-technician="selectedTechnician" />
-        </div>
+
 
         <!-- Create/Edit Modal -->
         <dialog ref="createModalRef" class="modal">

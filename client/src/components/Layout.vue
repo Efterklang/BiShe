@@ -52,7 +52,14 @@ const menuItems = computed(() => {
                 { name: "实体商品", path: "/products", icon: Package },
             ]
         },
-        { name: "技师管理", path: "/technicians", icon: Users },
+        {
+            name: "技师管理",
+            icon: Users,
+            children: [
+                { name: "技师总览", path: "/technicians", icon: Users },
+                { name: "排班管理", path: "/technician-schedule", icon: Calendar },
+            ]
+        },
         { name: "会员管理", path: "/members", icon: UserCircle },
     ];
 
@@ -126,7 +133,7 @@ const handleMenuToggle = (event, itemName) => {
                         class="flex flex-col items-center justify-center gap-1 text-base-content/60"
                         :class="{ 'text-primary font-medium': route.path === '/technicians' }">
                         <Users class="w-6 h-6" />
-                        <span class="text-[10px]">技师</span>
+                        <span class="text-[10px]">技师总览</span>
                     </RouterLink>
                     <button @click="showMobileMenu = true"
                         class="flex flex-col items-center justify-center gap-1 text-base-content/60">

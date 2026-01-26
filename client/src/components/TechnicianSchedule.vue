@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
+import { ChevronLeft, ChevronRight, Filter, CheckCircle2 } from 'lucide-vue-next';
 import {
     getSchedules,
     batchSetSchedule,
@@ -26,7 +27,16 @@ const processing = ref(false);
 const isEditMode = ref(false);
 const selectedDates = ref(new Set());
 
-
+const isAllSelected = computed({
+    get: () => technicians.value.length > 0 && selectedTechIds.value.length === technicians.value.length,
+    set: (value) => {
+        if (value) {
+            selectedTechIds.value = technicians.value.map(t => t.id);
+        } else {
+            selectedTechIds.value = [];
+        }
+    }
+});
 
 // --- Computed ---
 const currentYear = computed(() => currentDate.value.getFullYear());
@@ -71,12 +81,6 @@ const currentLabel = computed(() => {
     });
 });
 
-
-
-
-
-
-
 // --- Helpers ---
 const formatDate = (date) => {
     const y = date.getFullYear();
@@ -84,8 +88,6 @@ const formatDate = (date) => {
     const d = String(date.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
 };
-
-
 
 // --- API ---
 const fetchTechniciansList = async () => {
@@ -212,20 +214,6 @@ const getDayStatus = (dateStr) => {
     };
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // Watch for selectedTechnician prop changes
 watch(
     () => props.selectedTechnician,
@@ -252,19 +240,13 @@ onMounted(async () => {
             <div class="flex items-center gap-2">
                 <div class="join">
                     <button @click="changeDate(-1)" class="btn btn-sm join-item">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                            stroke="currentColor" class="w-4 h-4">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                        </svg>
+                        <ChevronLeft class="w-4 h-4" />
                     </button>
                     <button @click="goToToday" class="btn btn-sm join-item">
                         今天
                     </button>
                     <button @click="changeDate(1)" class="btn btn-sm join-item">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                            stroke="currentColor" class="w-4 h-4">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                        </svg>
+                        <ChevronRight class="w-4 h-4" />
                     </button>
                 </div>
                 <span class="text-lg font-bold ml-2 min-w-35">{{
@@ -279,15 +261,19 @@ onMounted(async () => {
                 <!-- Tech Filter -->
                 <div class="dropdown dropdown-end">
                     <label tabindex="0" class="btn btn-sm btn-outline">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                            stroke="currentColor" class="w-4 h-4 mr-1">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-                        </svg>
-                        筛选技师 ({{ selectedTechIds.length || "全" }})
+                        <Filter class="w-4 h-4 mr-1" />
+                        筛选技师
                     </label>
                     <div tabindex="0"
-                        class="dropdown-content z-1 menu p-2 shadow bg-base-100 rounded-box w-52 max-h-64 overflow-y-auto border border-base-200">
+                        class="dropdown-content z-1 menu p-2 shadow bg-base-100 rounded-box overflow-y-auto">
+                        <li>
+                            <label class="label cursor-pointer justify-start gap-2">
+                                <input type="checkbox" class="checkbox checkbox-xs checkbox-primary"
+                                    v-model="isAllSelected" />
+                                <span class="label-text font-semibold">全部技师</span>
+                            </label>
+                        </li>
+                        <div class="divider my-1"></div>
                         <li v-for="tech in technicians" :key="tech.id">
                             <label class="label cursor-pointer justify-start gap-2">
                                 <input type="checkbox" class="checkbox checkbox-xs checkbox-primary" :value="tech.id"
@@ -376,12 +362,7 @@ onMounted(async () => {
 
                             <!-- Selection Checkmark -->
                             <div v-if="isEditMode && day.isSelected" class="absolute top-2 right-2 text-primary">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
-                                    class="w-5 h-5">
-                                    <path fill-rule="evenodd"
-                                        d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-                                        clip-rule="evenodd" />
-                                </svg>
+                                <CheckCircle2 :size="20" fill="currentColor" />
                             </div>
                         </div>
                     </div>

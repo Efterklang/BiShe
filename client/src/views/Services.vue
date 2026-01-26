@@ -16,7 +16,6 @@ import {
     X,
     Package,
     PackagePlus,
-    Archive
 } from 'lucide-vue-next';
 
 const { canManageServices } = usePermission();
@@ -168,7 +167,7 @@ const handleSubmit = async () => {
                         </div>
                         <div class="text-right shrink-0">
                             <span class="block text-xl font-bold text-base-content font-mono">¥{{ service.price
-                                }}</span>
+                            }}</span>
                         </div>
                     </div>
 
