@@ -74,7 +74,11 @@ const canProceedStep2 = computed(() => {
 
 const endTime = computed(() => {
     if (!formData.value.start_time || !selectedService.value) return "";
-    const start = new Date(formData.value.start_time);
+
+    const currentSlot = timeSlots.value.find(s => s.start_time === formData.value.start_time);
+    const timeStr = currentSlot.time.length === 5 ? `${currentSlot.time}:00` : currentSlot.time;
+    const start = new Date(`${selectedDate.value}T${timeStr}`);
+
     const end = new Date(
         start.getTime() + selectedService.value.duration * 60000,
     );
@@ -578,35 +582,35 @@ watch(
                             <span class="text-base-content/60">会员</span>
                             <span class="font-medium">{{
                                 selectedMember?.name
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">服务项目</span>
                             <span class="font-medium">{{
                                 selectedService?.name
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">技师</span>
                             <span class="font-medium">{{
                                 selectedTech?.name
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">开始时间</span>
                             <span class="font-medium">{{
                                 formatTime(formData.start_time)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
                             <span class="text-base-content/60">预计结束</span>
                             <span class="font-medium">{{
                                 formatTime(endTime)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="divider my-0"></div>
                         <div class="flex justify-between items-center">
