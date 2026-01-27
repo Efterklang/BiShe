@@ -33,17 +33,20 @@ func getJWTSecret() []byte {
 }
 
 // GenerateToken creates a new JWT token for the given user
-func GenerateToken(userID uint, role string) (string, error) {
+func GenerateToken(userID uint, role string, expireAfter *time.Duration) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 		},
 	}
 
+	if expireAfter != nil {
+		now := time.Now()
+		claims.ExpiresAt = jwt.NewNumericDate(now.Add(*expireAfter))
+	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(getJWTSecret())
 }

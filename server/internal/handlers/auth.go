@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"smartspa-admin/internal/auth"
 	"smartspa-admin/internal/db"
@@ -118,7 +119,8 @@ func Login(c *gin.Context) {
 	}
 
 	// Generate JWT token
-	token, err := auth.GenerateToken(user.ID, user.Role)
+	expireAfter := 24 * time.Hour
+	token, err := auth.GenerateToken(user.ID, user.Role, &expireAfter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to generate token", nil))
 		return
