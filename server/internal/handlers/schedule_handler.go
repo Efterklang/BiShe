@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
 	"smartspa-admin/internal/db"
 	"smartspa-admin/internal/models"
+	"smartspa-admin/internal/repo"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
@@ -28,49 +28,6 @@ func GetSchedules(c *gin.Context) {
 	}
 
 	var schedules []models.Schedule
-	// 查询时使用 Preload 加载 Technician 信息
-	// datatypes.Date 映射到数据库中的 DATE 类型（字符串），可以直接进行比较
-	// 且不需要处理时区和时分秒问题，date >= '2026-01-01' AND date <= '2026-01-31' 可以正确包含边界
-	// 注意：endDateStr 已经是 "YYYY-MM-DD" 格式，可以直接比较
-	// 关键：GORM 的 datatypes.Date 实现了 Scanner/Valuer，在查询时会将 time.Time 或 string 转换为正确的格式
-	// 但是在 Where 语句中，如果传入的是 string，数据库会进行字符串比较。
-	// 对于 SQLite，DATE 类型本质上是 TEXT。
-	// "2026-01-31" <= "2026-01-31" 是 true。
-	// GORM 默认使用 time.Time 解析 date，所以 Where("date >= ? AND date <= ?", startDateStr, endDateStr) 会把 string 解析为 time.Time
-	// 这样就变成了 date >= '2026-01-01 00:00:00+00:00' AND date <= '2026-01-31 00:00:00+00:00'
-	// 而数据库里存的是 "2026-01-31"，字符串比较 '2026-01-31' <= '2026-01-31 00:00:00+00:00' 是 true
-	// 等等，数据库里存的是什么？
-	// 迁移脚本执行的是 `UPDATE schedules SET date = substr(date, 1, 10)`，所以数据库里存的是 "2026-01-31"
-	// 测试数据使用 `datatypes.Date(time.Time)` 创建。GORM 在 SQLite 下 datatypes.Date 的 Valuer 实现：
-	// return time.Time(date).Format("2006-01-02"), nil
-	// 所以测试数据也是存为 "2026-01-31"。
-	//
-	// 查询参数 startDateStr 和 endDateStr 是字符串 "2026-01-01" 和 "2026-01-31"。
-	// GORM Where 的行为：
-	// 如果参数是 string，且没有手动 Cast，GORM 可能会直接传给数据库驱动。
-	// 但如果模型字段是 time.Time，GORM 可能会尝试解析。这里模型字段是 datatypes.Date。
-	// datatypes.Date 本质是 time.Time。
-	// 让我们尝试显式转换类型，确保 GORM 知道我们在比较什么。
-	// 或者直接使用字符串比较。
-	//
-	// 实际上，问题可能出在 TestGetSchedules 的 setup 并没有使用迁移后的数据库（它是内存数据库，且每次新建）。
-	// 在 TestGetSchedules 中：
-	// testDB.Model(&models.Schedule{}).Create(...)
-	// 这里的 Create 使用的是 GORM + datatypes.Date。
-	// datatypes.Date 在 Save 时会格式化为 "YYYY-MM-DD"。
-	// 所以内存数据库里存的是 "2026-01-31"。
-	//
-	// 查询时：
-	// Where("date >= ? AND date <= ?", "2026-01-01", "2026-01-31")
-	// 数据库执行：SELECT * FROM schedules WHERE date >= '2026-01-01' AND date <= '2026-01-31'
-	// 字符串比较 "2026-01-31" <= "2026-01-31" 是 TRUE。
-	// 理论上应该能查到。
-	//
-	// 为什么测试失败？
-	// schedule_handler_test.go:257: Expected 2 records, got 1. Dates: [2026-01-01]
-	// 说明 01-31 没查到。
-	//
-	// 让我们调试一下，把 endDateStr 打印出来或者转换成 datatypes.Date 再传给 Where。
 
 	sDate, _ := time.Parse("2006-01-02", startDateStr)
 	eDate, _ := time.Parse("2006-01-02", endDateStr)
@@ -204,33 +161,6 @@ func GetAvailableTechnicians(c *gin.Context) {
 		return
 	}
 
-	// ========== 新增：构建技师技能映射表 ==========
-	// techID -> []serviceID
-	techSkillsMap := make(map[uint][]uint)
-	for _, tech := range allTechnicians {
-		var techSkills []uint
-		if tech.Skills != nil {
-			// 尝试解析 JSON 数组 (新格式)
-			if err := json.Unmarshal(tech.Skills, &techSkills); err != nil {
-				// 如果解析失败，尝试解析旧格式（字符串数组）
-				var oldSkills []string
-				if err2 := json.Unmarshal(tech.Skills, &oldSkills); err2 == nil {
-					// 尝试根据名称匹配服务项目ID
-					for _, skillName := range oldSkills {
-						var serviceItem models.ServiceProduct
-						if err3 := db.DB.Where("name = ?", skillName).First(&serviceItem).Error; err3 == nil {
-							techSkills = append(techSkills, serviceItem.ID)
-						}
-					}
-				} else {
-					techSkills = []uint{}
-				}
-			}
-		}
-		techSkillsMap[tech.ID] = techSkills
-	}
-	// ===========================================
-
 	// 检查排班状态（是否在岗）
 	checkDate := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), 0, 0, 0, 0, time.UTC)
 	dateStr := checkDate.Format("2006-01-02")
@@ -257,16 +187,8 @@ func GetAvailableTechnicians(c *gin.Context) {
 	var unavailableTechnicians []models.Technician
 
 	for _, tech := range allTechnicians {
-		techSkills := techSkillsMap[tech.ID]
-
-		// ========== 新增：检查是否具备该服务项目的技能 ==========
-		hasSkill := false
-		for _, skillID := range techSkills {
-			if skillID == service.ID {
-				hasSkill = true
-				break
-			}
-		}
+		// 检查是否具备该服务项目的技能
+		hasSkill := repo.Technician.HasSkill(&tech, service.ID, service.Name)
 
 		if !hasSkill {
 			// 不具备该技能，加入不可用列表
@@ -275,7 +197,6 @@ func GetAvailableTechnicians(c *gin.Context) {
 			unavailableTechnicians = append(unavailableTechnicians, tech)
 			continue
 		}
-		// ======================================================
 
 		// 检查是否在岗（默认在岗）
 		isAvailable, exists := scheduleMap[tech.ID]
@@ -394,44 +315,15 @@ func GetTimeSlotsAvailability(c *gin.Context) {
 		return
 	}
 
-	// 获取所有技师
-	var allTechnicians []models.Technician
-	if err := db.DB.Find(&allTechnicians).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "Failed to fetch technicians"})
+	// 1. 预处理：筛选具备技能的技师ID
+	skilledTechs, err := repo.Technician.GetTechniciansWithSkill(service.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "Failed to fetch skilled technicians"})
 		return
 	}
-
-	// 1. 预处理：筛选具备技能的技师ID
 	var skilledTechIDs []uint
-	for _, tech := range allTechnicians {
-		var techSkills []uint
-		if tech.Skills != nil {
-			// 尝试解析JSON
-			json.Unmarshal(tech.Skills, &techSkills)
-			// 如果是旧格式，这里简化处理，假设已经迁移或者只支持新格式。
-			// 为了健壮性，这里简单复制之前的解析逻辑
-			if len(techSkills) == 0 {
-				var oldSkills []string
-				if err2 := json.Unmarshal(tech.Skills, &oldSkills); err2 == nil {
-					for _, skillName := range oldSkills {
-						var serviceItem models.ServiceProduct
-						if err3 := db.DB.Where("name = ?", skillName).First(&serviceItem).Error; err3 == nil {
-							if serviceItem.ID == service.ID {
-								techSkills = append(techSkills, serviceItem.ID)
-								break
-							}
-						}
-					}
-				}
-			}
-		}
-
-		for _, sID := range techSkills {
-			if sID == service.ID {
-				skilledTechIDs = append(skilledTechIDs, tech.ID)
-				break
-			}
-		}
+	for _, tech := range skilledTechs {
+		skilledTechIDs = append(skilledTechIDs, tech.ID)
 	}
 
 	// 2. 预处理：获取当天排班（请假情况）
