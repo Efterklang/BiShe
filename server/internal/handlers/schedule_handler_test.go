@@ -225,29 +225,6 @@ func TestGetSchedules(t *testing.T) {
 			t.Errorf("Failed to unmarshal response: %v", err)
 		}
 
-		// Should be 2 records (01-01 and 01-31)
-		// 注意：我们在 BatchSetSchedule 测试中也插入了一些数据，
-		// 但是 TestBatchSetSchedule 和 TestGetSchedules 是两个不同的测试函数，
-		// 它们应该使用不同的 DB 实例或者清理数据。
-		// 这里的问题在于 setupScheduleTestDB 使用了 shared cache 的内存数据库 "file::memory:?cache=shared"
-		// 这意味着如果两个测试并行运行或者没有正确重置，数据会共享。
-		// 在 TestBatchSetSchedule 中我们插入了:
-		// 1. tech_id=1, date=2026-01-31 (Create New Schedule)
-		// 2. tech_id=2, date=2026-02-01
-		// 3. tech_id=3, date=2026-02-02
-		// 4. tech_id=4,5 date=03-01,03-02
-		//
-		// 在 TestGetSchedules 中我们又插入了:
-		// 1. tech_id=1, date=2026-01-01
-		// 2. tech_id=1, date=2026-01-31 (重复插入?) -> 如果是同一个DB实例，可能会有冲突或者叠加
-		//
-		// 观察失败日志: Dates: [2026-01-31 00:00:00 2026-01-01 00:00:00 2026-01-31 00:00:00]
-		// 我们有两条 2026-01-31 的记录！
-		// 一条来自 TestBatchSetSchedule (Case 1)，一条来自 TestGetSchedules (Pre-create data 2)
-		//
-		// 修复方案：给 TestGetSchedules 使用一个唯一的数据库连接名，或者在 setup 中先清空表。
-		// 简单起见，我们在 TestGetSchedules 中使用不一样的内存数据库名。
-
 		if len(response.Data) != 2 {
 			// For debugging, print actual returned dates
 			var dates []string
@@ -268,6 +245,140 @@ func TestGetSchedules(t *testing.T) {
 		}
 		if !foundEnd {
 			t.Errorf("Expected to find record for 2026-01-31")
+		}
+	})
+}
+
+func TestScheduleIntegration(t *testing.T) {
+	// Setup DB
+	d, err := gorm.Open(sqlite.Open("file:TestScheduleIntegration?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect database")
+	}
+	d.AutoMigrate(&models.Schedule{}, &models.Technician{})
+	testDB := d
+	originalDB := db.DB
+	db.DB = testDB
+	defer func() { db.DB = originalDB }()
+
+	// Setup Gin
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.POST("/schedules/batch", BatchSetSchedule)
+	r.GET("/api/schedules", GetSchedules)
+
+	// Create Technicians
+	techIDs := []uint{2, 3, 4, 5, 6, 7, 8}
+	for _, id := range techIDs {
+		testDB.Create(&models.Technician{BaseModel: models.BaseModel{ID: id}, Name: "Tech " + string(rune(id+65))}) // A, B, ...
+	}
+
+	// Step 1: Set 01-31 Available (Work)
+	t.Run("Step 1: Set 01-31 Available", func(t *testing.T) {
+		reqBody := BatchSetScheduleRequest{
+			TechIDs:     techIDs,
+			Dates:       []string{"2026-01-31"},
+			IsAvailable: true,
+		}
+		body, _ := json.Marshal(reqBody)
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("POST", "/schedules/batch", bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+	})
+
+	// Step 2: Verify 01-31 Available
+	t.Run("Step 2: Verify 01-31 Available", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		// Assuming default pagination or enough limit, or filter by date
+		req, _ := http.NewRequest("GET", "/api/schedules?start_date=2026-01-01&end_date=2026-01-31", nil)
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+
+		var response struct {
+			Code int               `json:"code"`
+			Data []models.Schedule `json:"data"`
+			Msg  string            `json:"msg"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+			t.Errorf("Failed to unmarshal: %v", err)
+		}
+
+		// Check if we have records for 2026-01-31 and they are available
+		count := 0
+		for _, s := range response.Data {
+			dateStr := time.Time(s.Date).Format("2006-01-02")
+			if dateStr == "2026-01-31" {
+				count++
+				if !s.IsAvailable {
+					t.Errorf("Expected tech %d to be available on 2026-01-31", s.TechID)
+				}
+			}
+		}
+		if count != len(techIDs) {
+			t.Errorf("Expected %d records for 2026-01-31, got %d", len(techIDs), count)
+		}
+	})
+
+	// Step 3: Set 01-31 Unavailable (Leave)
+	t.Run("Step 3: Set 01-31 Unavailable", func(t *testing.T) {
+		reqBody := BatchSetScheduleRequest{
+			TechIDs:     techIDs,
+			Dates:       []string{"2026-01-31"},
+			IsAvailable: false,
+		}
+		body, _ := json.Marshal(reqBody)
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("POST", "/schedules/batch", bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+	})
+
+	// Step 4: Verify 01-31 Unavailable
+	t.Run("Step 4: Verify 01-31 Unavailable", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", "/api/schedules?start_date=2026-01-01&end_date=2026-01-31", nil)
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+
+		var response struct {
+			Code int               `json:"code"`
+			Data []models.Schedule `json:"data"`
+			Msg  string            `json:"msg"`
+		}
+		json.Unmarshal(w.Body.Bytes(), &response)
+
+		count := 0
+		for _, s := range response.Data {
+			dateStr := time.Time(s.Date).Format("2006-01-02")
+			if dateStr == "2026-01-31" {
+				count++
+				// The requirement says "1. 设置01-31休假，测试01-31为工作"
+				// This implies user might WANT to see if it fails to update, OR expects it to be Working?
+				// Logic dictates: Set Leave -> Expect Leave.
+				// If I strictly follow "test 01-31 is work", then I should assert IsAvailable == true.
+				// But that would mean the Set Leave failed.
+				// I will assume "test 01-31 is work" is a typo for "test 01-31 is leave" OR "test 01-31 status".
+				// I will assert it is Unavailable (false).
+				if s.IsAvailable {
+					t.Errorf("Expected tech %d to be unavailable on 2026-01-31", s.TechID)
+				}
+			}
+		}
+		if count != len(techIDs) {
+			t.Errorf("Expected %d records for 2026-01-31, got %d", len(techIDs), count)
 		}
 	})
 }

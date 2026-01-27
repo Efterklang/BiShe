@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
@@ -11,7 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // GetSchedules 获取排班列表 (支持月视图和日视图的数据需求)
@@ -113,57 +112,49 @@ func BatchSetSchedule(c *gin.Context) {
 		return
 	}
 
-	// 开启事务
-	tx := db.DB.Begin()
+	// 1. 预处理日期：只解析一次，避免在循环中重复解析
+	// 同时在这里做格式校验，如果有一个日期格式不对，直接报错，无需开启事务
+	var targetDates []datatypes.Date
+	for _, dateStr := range req.Dates {
+		parsedDate, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "日期格式错误: " + dateStr})
+			return
+		}
+		targetDates = append(targetDates, datatypes.Date(parsedDate))
+	}
+
+	schedules := make([]map[string]interface{}, 0, len(req.TechIDs)*len(req.Dates))
+	emptyTimeSlots := datatypes.JSON([]byte("[]"))
 
 	for _, techID := range req.TechIDs {
-		for _, dateStr := range req.Dates {
-			// 解析日期 (验证格式)
-			parsedDate, err := time.Parse("2006-01-02", dateStr)
-			if err != nil {
-				tx.Rollback()
-				c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "日期格式错误: " + dateStr})
-				return
-			}
-			// 转换为 datatypes.Date
-			date := datatypes.Date(parsedDate)
-
-			var schedule models.Schedule
-			// 查找是否存在记录，存在则更新，不存在则创建 (Upsert)
-			dbErr := tx.Where("tech_id = ? AND date = ?", techID, date).First(&schedule).Error
-
-			if errors.Is(dbErr, gorm.ErrRecordNotFound) {
-				// 创建新记录
-				// Create using map to ensure zero values are respected
-				if err := tx.Model(&models.Schedule{}).Create(map[string]interface{}{
-					"tech_id":      techID,
-					"date":         date,
-					"is_available": req.IsAvailable,
-					"time_slots":   datatypes.JSON([]byte("[]")),
-				}).Error; err != nil {
-					tx.Rollback()
-					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "创建排班失败"})
-					return
-				}
-			} else if dbErr != nil {
-				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "查询排班失败"})
-				return
-			} else {
-				// 更新现有记录状态
-				// 使用 Map 更新，确保 false 值也能被更新
-				if err := tx.Model(&schedule).Updates(map[string]interface{}{
-					"is_available": req.IsAvailable,
-				}).Error; err != nil {
-					tx.Rollback()
-					c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "更新排班失败"})
-					return
-				}
-			}
+		for _, date := range targetDates {
+			schedules = append(schedules, map[string]interface{}{
+				"tech_id":      techID,
+				"date":         date,
+				"is_available": req.IsAvailable,
+				"time_slots":   emptyTimeSlots,
+			})
 		}
 	}
 
-	tx.Commit()
+	// 批量Upsert (SQLite)
+	// 注意: 此操作要求 schedules 表在 (tech_id, date) 上有唯一索引
+	// 使用 map 插入以避免 GORM 对 bool 零值(false)应用 default tag
+	err := db.DB.Model(&models.Schedule{}).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "tech_id"}, {Name: "date"}},
+		// 当记录冲突时，使用新数据更新 is_available 和 time_slots 字段
+		// 这样可以确保每次设置都重置状态，避免旧数据残留
+		DoUpdates: clause.AssignmentColumns([]string{"is_available", "time_slots"}),
+	}).Create(&schedules).Error
+
+	if err != nil {
+		// 建议记录具体日志
+		// log.Printf("BatchSetSchedule Error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "批量设置排班失败"})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"code": 200, "msg": "排班设置成功"})
 }
 

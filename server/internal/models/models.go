@@ -79,9 +79,9 @@ type Appointment struct {
 // Schedule represents a technician's daily availability and booked slots.
 type Schedule struct {
 	BaseModel
-	TechID      uint           `gorm:"index;not null" json:"tech_id"`
+	TechID      uint           `gorm:"uniqueIndex:idx_tech_date;not null" json:"tech_id"`
 	Technician  Technician     `gorm:"foreignKey:TechID" json:"technician,omitempty"`
-	Date        datatypes.Date `gorm:"index;not null" json:"date"`
+	Date        datatypes.Date `gorm:"uniqueIndex:idx_tech_date;not null" json:"date"`
 	TimeSlots   datatypes.JSON `gorm:"type:json" json:"time_slots"`
 	IsAvailable bool           `gorm:"default:true" json:"is_available"`
 }
