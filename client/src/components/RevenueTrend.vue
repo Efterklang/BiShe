@@ -54,6 +54,9 @@ const chartOption = computed(() => {
                 text: "暂无数据",
                 left: "center",
                 top: "center",
+                textStyle: {
+                    color: "#2e3440" // Nord polar night (dark text for light bg)
+                }
             },
         };
     }
@@ -70,23 +73,23 @@ const chartOption = computed(() => {
     return {
         tooltip: {
             trigger: "axis",
-            backgroundColor: "rgba(255, 255, 255, 0.95)",
-            borderColor: "#e5e7eb",
+            backgroundColor: "#eceff4", // Nord snow storm 1 (light bg)
+            borderColor: "#d8dee9", // Nord snow storm 2 (border)
             borderWidth: 1,
             textStyle: {
-                color: "#1f2937",
+                color: "#2e3440", // Nord polar night (text)
                 fontSize: 12
             },
             padding: [8, 12],
-            extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);',
+            extraCssText: 'box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);',
             formatter: (params) => {
-                let result = `<div style="font-weight: 600; margin-bottom: 6px; color: #111827;">${params[0].axisValue}</div>`;
+                let result = `<div style="font-weight: 600; margin-bottom: 6px; color: #2e3440;">${params[0].axisValue}</div>`;
                 params.forEach((param) => {
                     const color = param.color.colorStops ? param.color.colorStops[0].color : param.color;
                     result += `<div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 4px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${color};"></span>
-                            <span style="color: #4b5563;">${param.seriesName}</span>
+                            <span style="color: #4c566a;">${param.seriesName}</span>
                         </div>
                         <span style="font-weight: 500; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">¥${param.value.toFixed(2)}</span>
                     </div>`;
@@ -101,7 +104,7 @@ const chartOption = computed(() => {
             icon: "circle",
             itemGap: 16,
             textStyle: {
-                color: "#6b7280"
+                color: "#4c566a" // Nord polar night 3 (legend text)
             }
         },
         grid: {
@@ -116,7 +119,7 @@ const chartOption = computed(() => {
             boundaryGap: false,
             data: dates,
             axisLabel: {
-                color: "#9ca3af",
+                color: "#616e88", // Nord snow storm 3 (axis text)
                 fontSize: 11,
                 margin: 12
             },
@@ -136,7 +139,7 @@ const chartOption = computed(() => {
                 show: false,
             },
             axisLabel: {
-                color: "#9ca3af",
+                color: "#616e88", // Nord snow storm 3 (axis text)
                 fontSize: 11,
                 formatter: (value) => {
                     if (value >= 1000) {
@@ -147,7 +150,7 @@ const chartOption = computed(() => {
             },
             splitLine: {
                 lineStyle: {
-                    color: "#f3f4f6",
+                    color: "#e5e9f0", // Nord snow storm 2 (split line)
                     type: "dashed"
                 },
             },
@@ -168,18 +171,18 @@ const chartOption = computed(() => {
                         x2: 1,
                         y2: 0,
                         colorStops: [
-                            { offset: 0, color: "#3b82f6" },
-                            { offset: 1, color: "#60a5fa" },
+                            { offset: 0, color: "#5e81ac" }, // Nord frost 3 (blue)
+                            { offset: 1, color: "#81a1c1" }, // Nord frost 4 (light blue)
                         ],
                     },
-                    shadowColor: 'rgba(59, 130, 246, 0.3)',
+                    shadowColor: 'rgba(94, 129, 172, 0.2)',
                     shadowBlur: 10,
                     shadowOffsetY: 5
                 },
                 itemStyle: {
-                    color: "#3b82f6",
+                    color: "#5e81ac", // Nord frost 3
                     borderWidth: 2,
-                    borderColor: "#fff",
+                    borderColor: "#eceff4", // Nord snow storm 1 (border)
                 },
                 areaStyle: {
                     color: {
@@ -189,8 +192,8 @@ const chartOption = computed(() => {
                         x2: 0,
                         y2: 1,
                         colorStops: [
-                            { offset: 0, color: "rgba(59, 130, 246, 0.2)" },
-                            { offset: 1, color: "rgba(59, 130, 246, 0.0)" },
+                            { offset: 0, color: "rgba(94, 129, 172, 0.15)" },
+                            { offset: 1, color: "rgba(94, 129, 172, 0.0)" },
                         ],
                     },
                 },
@@ -211,18 +214,18 @@ const chartOption = computed(() => {
                         x2: 1,
                         y2: 0,
                         colorStops: [
-                            { offset: 0, color: "#8b5cf6" },
-                            { offset: 1, color: "#a78bfa" },
+                            { offset: 0, color: "#b48ead" }, // Nord aurora 4 (purple)
+                            { offset: 1, color: "#d08770" }, // Nord aurora 3 (orange)
                         ],
                     },
-                    shadowColor: 'rgba(139, 92, 246, 0.3)',
+                    shadowColor: 'rgba(180, 142, 173, 0.2)',
                     shadowBlur: 10,
                     shadowOffsetY: 5
                 },
                 itemStyle: {
-                    color: "#8b5cf6",
+                    color: "#b48ead", // Nord aurora 4
                     borderWidth: 2,
-                    borderColor: "#fff",
+                    borderColor: "#eceff4", // Nord snow storm 1
                 },
                 areaStyle: {
                     color: {
@@ -232,8 +235,8 @@ const chartOption = computed(() => {
                         x2: 0,
                         y2: 1,
                         colorStops: [
-                            { offset: 0, color: "rgba(139, 92, 246, 0.2)" },
-                            { offset: 1, color: "rgba(139, 92, 246, 0.0)" },
+                            { offset: 0, color: "rgba(180, 142, 173, 0.15)" },
+                            { offset: 1, color: "rgba(180, 142, 173, 0.0)" },
                         ],
                     },
                 },
@@ -255,18 +258,18 @@ const chartOption = computed(() => {
                         x2: 1,
                         y2: 0,
                         colorStops: [
-                            { offset: 0, color: "#10b981" },
-                            { offset: 1, color: "#34d399" },
+                            { offset: 0, color: "#8fbcbb" }, // Nord frost 1 (teal)
+                            { offset: 1, color: "#88c0d0" }, // Nord frost 2 (light teal)
                         ],
                     },
-                    shadowColor: 'rgba(16, 185, 129, 0.3)',
+                    shadowColor: 'rgba(143, 188, 187, 0.2)',
                     shadowBlur: 10,
                     shadowOffsetY: 5
                 },
                 itemStyle: {
-                    color: "#10b981",
+                    color: "#8fbcbb", // Nord frost 1
                     borderWidth: 2,
-                    borderColor: "#fff",
+                    borderColor: "#eceff4", // Nord snow storm 1
                 },
                 areaStyle: {
                     color: {
@@ -276,8 +279,8 @@ const chartOption = computed(() => {
                         x2: 0,
                         y2: 1,
                         colorStops: [
-                            { offset: 0, color: "rgba(16, 185, 129, 0.2)" },
-                            { offset: 1, color: "rgba(16, 185, 129, 0.0)" },
+                            { offset: 0, color: "rgba(143, 188, 187, 0.15)" },
+                            { offset: 1, color: "rgba(143, 188, 187, 0.0)" },
                         ],
                     },
                 },
@@ -298,7 +301,7 @@ watch(() => props.days, (newDays) => {
         <div v-if="loading" class="h-full flex items-center justify-center">
             <span class="loading loading-spinner loading-lg"></span>
         </div>
-        <v-chart v-else :option="chartOption" autoresize class="w-full h-full" />
+        <VChart v-else :option="chartOption" autoresize class="w-full h-full" />
     </div>
 </template>
 
