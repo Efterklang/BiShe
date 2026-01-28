@@ -1,0 +1,51 @@
+name: Format Frontend Code
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: |
+          cd client
+          bun install
+
+      - name: Format code with Biome
+        id: format
+        run: |
+          cd client
+          bun run format --write
+          git diff --quiet client/ && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit formatting changes
+        if: steps.format.outputs.changed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Apply Biome formatting
+          commit_options: '--no-verify'
+          repository: .
+          create_pull_request: true
+          pr_title: 'Apply Biome formatting fixes'
+          pr_body: |
+            Automated formatting changes by GitHub Actions.
+            This PR was created after running Biome format on the client/ folder.
+          pr_branch: automated-formatting
