@@ -1,4 +1,4 @@
-import api from './axios';
+import api from "./axios";
 
 /**
  * 获取排班列表
@@ -8,7 +8,7 @@ import api from './axios';
  * @param {Array} params.tech_ids - 技师ID数组
  */
 export const getSchedules = (params) => {
-  return api.get('/api/schedules', { params });
+	return api.get("/api/schedules", { params });
 };
 
 /**
@@ -19,11 +19,11 @@ export const getSchedules = (params) => {
  * @param {boolean} payload.is_available - 是否在岗
  */
 export const batchSetSchedule = (payload) => {
-  // Adapter for legacy calls
-  if (payload.tech_id && !payload.tech_ids) {
-    payload = { ...payload, tech_ids: [payload.tech_id] };
-  }
-  return api.post('/api/schedules/batch', payload);
+	// Adapter for legacy calls
+	if (payload.tech_id && !payload.tech_ids) {
+		payload = { ...payload, tech_ids: [payload.tech_id] };
+	}
+	return api.post("/api/schedules/batch", payload);
 };
 
 /**
@@ -33,7 +33,7 @@ export const batchSetSchedule = (payload) => {
  * @param {string} params.date - 日期 YYYY-MM-DD
  */
 export const getTechnicianScheduleDetail = (params) => {
-  return api.get('/api/schedules/detail', { params });
+	return api.get("/api/schedules/detail", { params });
 };
 
 /**
@@ -43,7 +43,7 @@ export const getTechnicianScheduleDetail = (params) => {
  * @param {number} params.service_id - 服务项目ID
  */
 export const getAvailableTechnicians = (params) => {
-  return api.get('/api/schedules/available-technicians', { params });
+	return api.get("/api/schedules/available-technicians", { params });
 };
 
 /**
@@ -53,5 +53,5 @@ export const getAvailableTechnicians = (params) => {
  * @param {number} params.service_id - 服务项目ID
  */
 export const getTimeSlots = (params) => {
-  return api.get('/api/schedules/slots', { params });
+	return api.get("/api/schedules/slots", { params });
 };
