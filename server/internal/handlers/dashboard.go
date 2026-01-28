@@ -119,10 +119,7 @@ func (h *DashboardHandler) GetRevenueTrend(c *gin.Context) {
 	days := 30
 	if daysParam := c.Query("days"); daysParam != "" {
 		if parsedDays, err := strconv.Atoi(daysParam); err == nil && parsedDays > 0 {
-			days = parsedDays
-			if days > 365 {
-				days = 365 // 限制最多一年
-			}
+			days = min(parsedDays, 365)
 		}
 	}
 

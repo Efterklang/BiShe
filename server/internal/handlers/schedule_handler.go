@@ -10,7 +10,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
-	"gorm.io/gorm/clause"
 )
 
 // GetSchedules 获取排班列表 (支持月视图和日视图的数据需求)
@@ -98,12 +97,7 @@ func BatchSetSchedule(c *gin.Context) {
 	// 批量Upsert (SQLite)
 	// 注意: 此操作要求 schedules 表在 (tech_id, date) 上有唯一索引
 	// 使用 map 插入以避免 GORM 对 bool 零值(false)应用 default tag
-	err := db.DB.Model(&models.Schedule{}).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "tech_id"}, {Name: "date"}},
-		// 当记录冲突时，使用新数据更新 is_available 和 time_slots 字段
-		// 这样可以确保每次设置都重置状态，避免旧数据残留
-		DoUpdates: clause.AssignmentColumns([]string{"is_available", "time_slots"}),
-	}).Create(&schedules).Error
+	err := repo.Schedule.BatchUpsertSchedules(schedules)
 
 	if err != nil {
 		// 建议记录具体日志
@@ -127,12 +121,10 @@ func BatchSetSchedule(c *gin.Context) {
 //
 // Response:
 //   - available: 具备技能且时间空闲的技师
-//   - unavailable: 不具备技能、休息中或忙碌的技师
 //   - service: 请求的服务项目信息
 func GetAvailableTechnicians(c *gin.Context) {
 	startTimeStr := c.Query("start_time")
 	serviceIDStr := c.Query("service_id")
-
 	if startTimeStr == "" || serviceIDStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "start_time and service_id are required"})
 		return
@@ -147,87 +139,34 @@ func GetAvailableTechnicians(c *gin.Context) {
 
 	// 获取服务项目信息，计算结束时间
 	var service models.ServiceProduct
-	if err := db.DB.First(&service, serviceIDStr).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "msg": "Service not found"})
-		return
-	}
 
 	endTime := startTime.Add(time.Duration(service.Duration) * time.Minute)
 
-	// 获取所有技师
-	var allTechnicians []models.Technician
-	if err := db.DB.Find(&allTechnicians).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "Failed to fetch technicians"})
+	// 1. 获取具有服务技能的技师
+	skilledTechnicians, err := repo.Technician.GetTechniciansWithSkill(service.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "获取技师失败", "error": err.Error()})
 		return
 	}
 
-	// 检查排班状态（是否在岗）
-	checkDate := time.Date(startTime.Year(), startTime.Month(), startTime.Day(), 0, 0, 0, 0, time.UTC)
-	dateStr := checkDate.Format("2006-01-02")
-	var schedules []models.Schedule
-	db.DB.Where("date = ?", dateStr).Find(&schedules)
-
-	scheduleMap := make(map[uint]bool)
-	for _, s := range schedules {
-		scheduleMap[s.TechID] = s.IsAvailable
+	freeTechnicians, err := repo.Schedule.GetAvailableTechs(dateStr, startTime, endTime)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "获取排班失败", "error": err.Error()})
+		return
 	}
 
-	// 查询该时间段有冲突的技师（有 pending 预约）
-	var conflictAppointments []models.Appointment
-	db.DB.Where("status = ? AND start_time < ? AND end_time > ?", "pending", endTime, startTime).
-		Find(&conflictAppointments)
-
-	busyTechMap := make(map[uint]bool)
-	for _, appt := range conflictAppointments {
-		busyTechMap[appt.TechID] = true
-	}
-
-	// 筛选可用技师
+	// 筛选可用技师, 即skilledTechnicians中包含freeTechnicians
 	var availableTechnicians []models.Technician
-	var unavailableTechnicians []models.Technician
-
-	for _, tech := range allTechnicians {
-		// 检查是否具备该服务项目的技能
-		hasSkill := repo.Technician.HasSkill(&tech, service.ID, service.Name)
-
-		if !hasSkill {
-			// 不具备该技能，加入不可用列表
-			tech.Skills = nil // 避免JSON序列化问题
-			tech.Reason = "skill_mismatch"
-			unavailableTechnicians = append(unavailableTechnicians, tech)
-			continue
+	for _, tech := range skilledTechnicians {
+		if contains(freeTechnicians, tech.ID) {
+			availableTechnicians = append(availableTechnicians, tech)
 		}
-
-		// 检查是否在岗（默认在岗）
-		isAvailable, exists := scheduleMap[tech.ID]
-		if exists && !isAvailable {
-			// 休息中
-			tech.Skills = nil
-			tech.Reason = "leave"
-			unavailableTechnicians = append(unavailableTechnicians, tech)
-			continue
-		}
-
-		// 检查是否有冲突预约
-		if busyTechMap[tech.ID] {
-			// 忙碌中
-			tech.Skills = nil
-			tech.Reason = "busy"
-			unavailableTechnicians = append(unavailableTechnicians, tech)
-			continue
-		}
-
-		// 可用
-		tech.Skills = nil // 避免JSON序列化问题
-		availableTechnicians = append(availableTechnicians, tech)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": gin.H{
-			"available":   availableTechnicians,
-			"unavailable": unavailableTechnicians,
-			"total":       len(allTechnicians),
+			"available": availableTechnicians,
 			"service": gin.H{ // 新增：返回服务信息供前端显示
 				"id":   service.ID,
 				"name": service.Name,
@@ -256,13 +195,11 @@ func GetTechnicianScheduleDetail(c *gin.Context) {
 	}
 
 	// 获取排班信息
-	var schedule models.Schedule
-	// datatypes.Date可以直接用字符串查询
-	scheduleErr := db.DB.Where("tech_id = ? AND date = ?", techIDStr, dateStr).First(&schedule).Error
+	schedule, err := repo.Schedule.GetByTechAndDate(techIDStr, dateStr)
 
 	// 如果没有排班记录，默认为可用
 	isAvailable := true
-	if scheduleErr == nil {
+	if err == nil {
 		isAvailable = schedule.IsAvailable
 	}
 
@@ -329,14 +266,7 @@ func GetTimeSlotsAvailability(c *gin.Context) {
 	// 2. 预处理：获取当天排班（请假情况）
 	// datatypes.Date 存储为 "YYYY-MM-DD"，查询时直接使用 dateStr 即可
 	// checkDate := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
-	var schedules []models.Schedule
-	db.DB.Where("date = ?", dateStr).Find(&schedules)
-	unavailableScheduleTechs := make(map[uint]bool)
-	for _, s := range schedules {
-		if !s.IsAvailable {
-			unavailableScheduleTechs[s.TechID] = true
-		}
-	}
+	unavailableScheduleTechs, _ := repo.Schedule.GetUnavailableTechIDs(dateStr)
 
 	// 3. 预处理：获取当天所有预约
 	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)

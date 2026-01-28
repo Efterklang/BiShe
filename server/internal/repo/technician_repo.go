@@ -20,11 +20,11 @@ func (r *TechnicianRepo) GetTechniciansWithSkill(serviceID uint) ([]models.Techn
 	// 3. EXISTS子查询：遍历JSON数组，判断是否包含目标serviceID
 	// 4. CAST(value AS INTEGER)：兼容偶发的字符串格式数值（如["1","2"]），保证匹配精准
 	query := `
-		SELECT * FROM technicians 
+		SELECT * FROM technicians
 		WHERE json_valid(Skills) = 1
 		  AND json_type(Skills) = 'array'
 		  AND EXISTS (
-			SELECT 1 FROM json_each(Skills) 
+			SELECT 1 FROM json_each(Skills)
 			WHERE CAST(value AS INTEGER) = ?
 		  )
 	`
