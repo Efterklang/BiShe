@@ -137,37 +137,70 @@ func GetAvailableTechnicians(c *gin.Context) {
 		return
 	}
 
-	// 获取服务项目信息，计算结束时间
+	// 1. 获取服务项目信息，计算结束时间
 	var service models.ServiceProduct
+	if err := db.DB.First(&service, serviceIDStr).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "Service not found"})
+		return
+	}
 
 	endTime := startTime.Add(time.Duration(service.Duration) * time.Minute)
+	// 使用 UTC 格式化日期，确保与 datatypes.Date 存储一致
+	dateStr := startTime.UTC().Format("2006-01-02")
 
-	// 1. 获取具有服务技能的技师
+	// 2. 获取具有服务技能的技师
 	skilledTechnicians, err := repo.Technician.GetTechniciansWithSkill(service.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "获取技师失败", "error": err.Error()})
 		return
 	}
 
+	// 3. 获取空闲技师
 	freeTechnicians, err := repo.Schedule.GetAvailableTechs(dateStr, startTime, endTime)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "获取排班失败", "error": err.Error()})
 		return
 	}
 
-	// 筛选可用技师, 即skilledTechnicians中包含freeTechnicians
+	// 构建空闲技师Map加速查找
+	freeTechMap := make(map[uint]bool)
+	for _, t := range freeTechnicians {
+		freeTechMap[t.ID] = true
+	}
+
+	// 获取当天请假/不可用的技师ID，用于区分Reason
+	leaveTechMap, err := repo.Schedule.GetUnavailableTechIDs(dateStr)
+	if err != nil {
+		// 容错：如果获取失败，默认为空Map
+		leaveTechMap = make(map[uint]bool)
+	}
+
 	var availableTechnicians []models.Technician
-	for _, tech := range skilledTechnicians {
-		if contains(freeTechnicians, tech.ID) {
-			availableTechnicians = append(availableTechnicians, tech)
+	var unavailableTechnicians []models.Technician
+
+	// 4. 分类技师
+	for i := range skilledTechnicians {
+		tech := &skilledTechnicians[i] // 使用指针
+
+		if freeTechMap[tech.ID] {
+			availableTechnicians = append(availableTechnicians, *tech)
+		} else {
+			// 确定不可用原因
+			if leaveTechMap[tech.ID] {
+				tech.Reason = "leave"
+			} else {
+				tech.Reason = "busy"
+			}
+			unavailableTechnicians = append(unavailableTechnicians, *tech)
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": gin.H{
-			"available": availableTechnicians,
-			"service": gin.H{ // 新增：返回服务信息供前端显示
+			"available":   availableTechnicians,
+			"unavailable": unavailableTechnicians,
+			"service": gin.H{
 				"id":   service.ID,
 				"name": service.Name,
 			},

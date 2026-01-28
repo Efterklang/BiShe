@@ -5,9 +5,13 @@ import (
 	"smartspa-admin/internal/models"
 )
 
+type TechnicianRepository interface {
+	GetTechniciansWithSkill(serviceID uint) ([]models.Technician, error)
+}
+
 type TechnicianRepo struct{}
 
-var Technician = &TechnicianRepo{}
+var Technician TechnicianRepository = &TechnicianRepo{}
 
 // GetTechniciansWithSkill 筛选具备指定技能（serviceID）的技师
 func (r *TechnicianRepo) GetTechniciansWithSkill(serviceID uint) ([]models.Technician, error) {
