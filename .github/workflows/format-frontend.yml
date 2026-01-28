@@ -1,0 +1,45 @@
+name: Format Frontend Code
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: |
+          cd client
+          bun install
+      
+      - name: Check formatting with Biome
+        run: |
+          cd client
+          bun run format --check
+      
+      - name: Format code
+        if: failure()
+        run: |
+          cd client
+          bun run format --write
+      
+      - name: Commit formatting changes
+        if: failure()
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Apply Biome formatting
+          commit_options: '--no-verify'
+          repository: .
+          branch: ${{ github.head_ref }}
