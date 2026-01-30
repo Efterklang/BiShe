@@ -1,0 +1,646 @@
+<script setup>
+import { ref, onMounted } from "vue";
+import {
+    getTechnicians,
+    createTechnician,
+    updateTechnician,
+    deleteTechnician,
+} from "../api/technicians";
+import { getServices } from "../api/services";
+import { getAppointments } from "../api/appointments";
+import Avatar from "../components/Avatar.vue";
+import { usePermission } from "../composables/usePermission";
+import {
+    Plus,
+    Users,
+    X,
+    Calendar,
+    Clock,
+    Banknote,
+    ChevronLeft,
+    ChevronRight,
+    UserPlus,
+    User,
+    Briefcase,
+    Pencil,
+    Trash2,
+    CheckCircle
+} from 'lucide-vue-next';
+import "cally";
+
+const { canManageTechnicians } = usePermission();
+
+const technicians = ref([]);
+const loading = ref(true);
+
+// Modals refs
+const createModalRef = ref(null);
+const skillsModalRef = ref(null);
+const appointmentModalRef = ref(null);
+
+const submitting = ref(false);
+const editingId = ref(null);
+
+// Service list for skills selection
+const services = ref([]);
+
+// Appointment Modal
+const appointmentModalLoading = ref(false);
+const selectedAppointmentTech = ref(null);
+const selectedAppointmentDate = ref(new Date().toISOString().split('T')[0]);
+const calendarOpen = ref(false);
+const technicianAppointments = ref([]);
+
+const formData = ref({
+    name: "",
+    avatar_url: "",
+    skills: [], // Changed to array of service IDs
+});
+
+const fetchTechnicians = async () => {
+    loading.value = true;
+    try {
+        const res = await getTechnicians();
+        technicians.value = res || [];
+    } catch (error) {
+        console.error("Failed to load technicians:", error);
+    } finally {
+        loading.value = false;
+    }
+};
+
+// Fetch services list for skills selection
+const fetchServices = async () => {
+    try {
+        const res = await getServices();
+        services.value = res || [];
+    } catch (error) {
+        console.error("Failed to fetch services:", error);
+        services.value = [];
+    }
+};
+
+onMounted(fetchTechnicians);
+
+const openCreateModal = () => {
+    editingId.value = null;
+    formData.value = { name: "", avatar_url: "", skills: [] };
+    createModalRef.value?.showModal();
+    fetchServices();
+};
+
+const closeCreateModal = () => {
+    createModalRef.value?.close();
+};
+
+const handleEdit = async (tech) => {
+    editingId.value = tech.id;
+    // Ensure services are loaded to map names to IDs correctly
+    if (services.value.length === 0) {
+        await fetchServices();
+    }
+
+    let skillsArray = [];
+
+    if (tech.skills || tech.Skills) {
+        try {
+            // Check if skills is already an object/array (not a string)
+            const skillsData = typeof (tech.skills || tech.Skills) === 'string'
+                ? JSON.parse(tech.skills || tech.Skills)
+                : (tech.skills || tech.Skills);
+
+            if (Array.isArray(skillsData)) {
+                // Check if array contains IDs (new format) or strings (old format)
+                if (skillsData.length > 0 && typeof skillsData[0] === 'number') {
+                    // New format: array of service IDs - use directly
+                    skillsArray = skillsData;
+                } else {
+                    // Old format: array of service names - convert to IDs
+                    skillsArray = skillsData.map(name => {
+                        const service = services.value.find(s => s.name === name);
+                        return service ? service.id : null;
+                    }).filter(id => id !== null);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to parse skills:", e);
+            skillsArray = [];
+        }
+    }
+
+    formData.value = {
+        name: tech.name,
+        avatar_url: tech.avatar_url || "",
+        skills: skillsArray, // Array of IDs
+    };
+    createModalRef.value?.showModal();
+};
+
+const handleSchedule = (tech) => {
+    selectedAppointmentTech.value = tech;
+    selectedAppointmentDate.value = new Date().toISOString().split('T')[0];
+    appointmentModalRef.value?.showModal();
+    fetchTechnicianAppointments();
+};
+
+const closeAppointmentModal = () => {
+    appointmentModalRef.value?.close();
+};
+
+const fetchTechnicianAppointments = async () => {
+    if (!selectedAppointmentTech.value || !selectedAppointmentDate.value) return;
+
+    appointmentModalLoading.value = true;
+    try {
+        const allAppts = await getAppointments();
+        technicianAppointments.value = (allAppts || []).filter((app) =>
+            app.tech_id === selectedAppointmentTech.value.id &&
+            app.start_time.startsWith(selectedAppointmentDate.value),
+        );
+    } catch (error) {
+        console.error("Failed to fetch appointments:", error);
+        technicianAppointments.value = [];
+    } finally {
+        appointmentModalLoading.value = false;
+    }
+};
+
+const handleDateChange = (event) => {
+    const newDate = event.target?.value || event.detail?.value || event.detail;
+    if (newDate) {
+        selectedAppointmentDate.value = newDate;
+        calendarOpen.value = false;
+        fetchTechnicianAppointments();
+    }
+};
+
+const handleDateSelect = (event) => {
+    handleDateChange(event);
+};
+
+const formatDisplayDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'short'
+    });
+};
+
+const handleDelete = async (tech) => {
+    if (
+        !confirm(
+            `确定要删除技师 ${tech.name} 吗？如果该技师有待服务的订单，订单将被移至候补中。`,
+        )
+    ) {
+        return;
+    }
+
+    try {
+        await deleteTechnician(tech.id);
+        alert("删除成功");
+        await fetchTechnicians();
+    } catch (error) {
+        alert("删除失败: " + (error.response?.data?.msg || error.message));
+    }
+};
+
+const handleSubmit = async () => {
+    submitting.value = true;
+    try {
+        const payload = {
+            name: formData.value.name,
+            avatar_url: formData.value.avatar_url,
+            skills: formData.value.skills, // 直接发送ID数组
+        };
+
+        if (editingId.value) {
+            await updateTechnician(editingId.value, payload);
+        } else {
+            await createTechnician(payload);
+        }
+
+        closeCreateModal();
+        await fetchTechnicians();
+    } catch (error) {
+        alert(
+            (editingId.value ? "更新" : "创建") +
+            "失败: " +
+            (error.message || "未知错误"),
+        );
+    } finally {
+        submitting.value = false;
+    }
+};
+
+const toggleSkill = (serviceId) => {
+    const index = formData.value.skills.indexOf(serviceId);
+    if (index === -1) {
+        formData.value.skills.push(serviceId);
+    } else {
+        formData.value.skills.splice(index, 1);
+    }
+};
+
+// Check if skill is selected
+const isSkillSelected = (serviceId) => {
+    return formData.value.skills.includes(serviceId);
+};
+
+// Get service name by ID
+const getSkillName = (serviceId) => {
+    const service = services.value.find(s => s.id === serviceId);
+    return service ? service.name : '未知服务';
+};
+
+const openSkillsModal = () => {
+    skillsModalRef.value?.showModal();
+};
+
+const closeSkillsModal = () => {
+    skillsModalRef.value?.close();
+};
+</script>
+
+<template>
+    <div>
+        <!-- Header Section -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-base-content">
+                    技师总览
+                </h1>
+                <p class="mt-1 text-base-content/60">
+                    管理和查看所有技师的信息、技能和状态。
+                </p>
+            </div>
+            <button v-if="canManageTechnicians" @click="openCreateModal" class="btn btn-primary">
+                <Plus class="w-4 h-4 mr-1" />
+                添加技师
+            </button>
+        </div>
+
+        <div>
+            <!-- Loading State -->
+            <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div v-for="i in 4" :key="i" class="h-64 rounded-xl border border-base-300 bg-base-200 animate-pulse">
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else-if="technicians.length === 0"
+                class="flex flex-col items-center justify-center py-20 border border-dashed border-base-300 rounded-xl bg-base-200/50 text-center">
+                <div class="p-4 bg-base-300 rounded-full mb-4">
+                    <Users class="w-8 h-8 text-base-content/40" />
+                </div>
+                <h3 class="text-lg font-medium text-base-content">暂无技师</h3>
+                <p class="text-base-content/60 mt-1">
+                    点击右上角按钮添加第一位技师。
+                </p>
+            </div>
+
+            <!-- Technicians Grid -->
+            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div v-for="tech in technicians" :key="tech.id"
+                    class="group bg-base-100 border border-base-200 rounded-xl overflow-hidden hover:shadow-md hover:border-primary/20 transition-all duration-200">
+
+                    <!-- Simplified Header -->
+                    <div class="h-16 bg-linear-to-br from-primary/5 to-transparent"></div>
+
+                    <!-- Avatar & Info -->
+                    <div class="flex flex-col items-center text-center -mt-12 px-6">
+                        <div class="mb-4">
+                            <Avatar :name="tech.name" :src="tech.avatar_url" size="xl" class="w-20 h-20 text-xl" />
+                        </div>
+
+                        <div class="mb-4">
+                            <h3 class="text-lg font-semibold text-base-content mb-1">{{ tech.name }}</h3>
+                            <div class="flex items-center gap-4 text-sm text-base-content/60">
+                                <span class="flex items-center gap-1">
+                                    <Clock class="w-3 h-3" />
+                                    {{ tech.pending_orders || 0 }} 待服务
+                                </span>
+                                <span class="flex items-center gap-1">
+                                    <CheckCircle class="w-3 h-3" />
+                                    {{ tech.total_orders || 0 }} 已完成
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Skills -->
+                    <div class="px-6 pb-4">
+                        <div class="flex flex-wrap gap-1.5 justify-center">
+                            <span v-for="(skill, idx) in tech.skill_names.slice(0, 4)" :key="idx"
+                                class="badge badge-sm badge-ghost">
+                                {{ skill }}
+                            </span>
+                            <span v-if="tech.skill_names.length > 4" class="badge badge-sm badge-ghost">
+                                +{{ tech.skill_names.length - 4 }}
+                            </span>
+                            <span v-if="!tech.skill_names || tech.skill_names.length === 0"
+                                class="text-xs text-base-content/40 italic">
+                                暂无技能标签
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="p-4 border-t border-base-200/50 bg-base-50/30 flex gap-2 mt-auto">
+                        <button @click="handleSchedule(tech)" class="btn btn-primary btn-sm flex-1">
+                            查看预约
+                        </button>
+
+                        <button v-if="canManageTechnicians" @click="handleEdit(tech)"
+                            class="btn btn-ghost btn-sm btn-square">
+                            <Pencil class="w-4 h-4" />
+                        </button>
+                        <button v-if="canManageTechnicians" @click="handleDelete(tech)"
+                            class="btn btn-ghost btn-sm btn-square text-error hover:bg-error/10">
+                            <Trash2 class="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- Create/Edit Modal -->
+        <dialog ref="createModalRef" class="modal">
+            <div
+                class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-md">
+                <!-- Modal Header -->
+                <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
+                    <h3 class="font-semibold text-lg text-base-content flex items-center gap-2">
+                        <UserPlus v-if="!editingId" class="w-5 h-5 text-primary" />
+                        <User v-else class="w-5 h-5 text-primary" />
+                        {{ editingId ? "编辑技师" : "添加新技师" }}
+                    </h3>
+                    <button @click="closeCreateModal" class="btn btn-ghost btn-sm btn-square text-base-content/60">
+                        <X class="w-5 h-5" />
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6">
+                    <form @submit.prevent="handleSubmit" class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-base-content/80 mb-1">姓名</label>
+                            <input type="text" v-model="formData.name" placeholder="请输入技师姓名"
+                                class="input input-bordered w-full bg-base-100" required />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-base-content/80 mb-1">头像链接</label>
+                            <input type="text" v-model="formData.avatar_url" placeholder="请输入头像URL地址 (可选)"
+                                class="input input-bordered w-full bg-base-100" />
+                        </div>
+
+                        <!-- Skills Selection -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text font-medium">
+                                    掌握技能
+                                    <span class="text-base-content/40 font-normal">(可多选)</span>
+                                </span>
+                            </label>
+
+                            <!-- Selected Skills Tags -->
+                            <div class="flex flex-wrap gap-2 mb-2" v-if="formData.skills.length > 0">
+                                <div v-for="serviceId in formData.skills" :key="serviceId"
+                                    class="badge badge-primary gap-1 cursor-pointer hover:opacity-80">
+                                    {{ getSkillName(serviceId) }}
+                                    <button type="button" @click="toggleSkill(serviceId)"
+                                        class="btn btn-xs btn-circle btn-ghost">
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Add Skills Button -->
+                            <button type="button" @click="openSkillsModal" class="btn btn-outline w-full">
+                                <Plus class="w-4 h-4" />
+                                选择技能
+                                <span class="text-xs text-base-content/60 ml-2" v-if="formData.skills.length > 0">
+                                    (已选 {{ formData.skills.length }} 项)
+                                </span>
+                            </button>
+
+                            <label class="label" v-if="services.length === 0">
+                                <span class="label-text-alt text-base-content/60">
+                                    请先在"服务管理"中添加服务项目
+                                </span>
+                            </label>
+                        </div>
+
+                        <div class="pt-2">
+                            <button type="submit" class="btn btn-primary w-full" :disabled="submitting">
+                                <span v-if="submitting" class="loading loading-spinner loading-xs mr-2"></span>
+                                {{
+                                    submitting
+                                        ? "保存中..."
+                                        : editingId
+                                            ? "确认修改"
+                                            : "确认添加"
+                                }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
+                <button @click="closeCreateModal">close</button>
+            </form>
+        </dialog>
+
+        <!-- Skills Selection Modal -->
+        <dialog ref="skillsModalRef" class="modal">
+            <div
+                class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-4xl">
+                <!-- Modal Header -->
+                <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
+                    <div>
+                        <h3 class="font-semibold text-lg text-base-content flex items-center gap-2">
+                            <Briefcase class="w-5 h-5 text-primary" />
+                            选择技师技能
+                        </h3>
+                        <p class="text-sm text-base-content/60 mt-1">
+                            已选择 {{ formData.skills.length }} 项服务
+                        </p>
+                    </div>
+                    <button @click="closeSkillsModal" class="btn btn-ghost btn-sm btn-square text-base-content/60">
+                        <X class="w-5 h-5" />
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6">
+                    <!-- Empty State -->
+                    <div v-if="services.length === 0" class="text-center py-12 text-base-content/60">
+                        <Briefcase class="w-16 h-16 mx-auto mb-4 opacity-30" />
+                        <p class="text-lg font-medium">暂无服务项目</p>
+                        <p class="text-sm mt-1">请先在"服务管理"中添加服务项目</p>
+                    </div>
+
+                    <!-- Skills Grid -->
+                    <div v-else
+                        class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto pr-2">
+                        <div v-for="service in services" :key="service.id"
+                            class="card bg-base-100 border-2 border-base-300 hover:border-primary transition-all cursor-pointer"
+                            :class="{ 'border-primary bg-primary/5': isSkillSelected(service.id) }"
+                            @click="toggleSkill(service.id)">
+                            <div class="card-body p-4">
+                                <div class="flex items-start gap-3">
+                                    <input type="checkbox" :checked="isSkillSelected(service.id)"
+                                        @click.stop="toggleSkill(service.id)"
+                                        class="checkbox checkbox-primary mt-1 checkbox-sm" />
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-base-content text-sm">
+                                            {{ service.name }}
+                                        </div>
+                                        <div class="text-xs text-base-content/60 mt-1">
+                                            ¥{{ service.price }} · {{ service.duration }}分钟
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="modal-action px-6 py-4 border-t border-base-200 bg-base-200/30 flex justify-between">
+                    <button @click="closeSkillsModal" class="btn btn-ghost">
+                        取消
+                    </button>
+                    <button @click="closeSkillsModal" class="btn btn-primary">
+                        确定 (已选 {{ formData.skills.length }} 项)
+                    </button>
+                </div>
+            </div>
+            <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
+                <button @click="closeSkillsModal">close</button>
+            </form>
+        </dialog>
+
+        <!-- Appointment Modal -->
+        <dialog ref="appointmentModalRef" class="modal">
+            <div
+                class="modal-box bg-base-100 border border-base-300 shadow-2xl rounded-xl p-0 overflow-hidden max-w-2xl">
+                <!-- Modal Header -->
+                <div class="px-6 py-4 border-b border-base-200 flex justify-between items-center bg-base-200/50">
+                    <div>
+                        <h3 class="font-semibold text-lg text-base-content flex items-center gap-2">
+                            <Calendar class="w-5 h-5 text-primary" />
+                            {{ selectedAppointmentTech?.name }} 的预约安排
+                        </h3>
+                        <p class="text-sm text-base-content/60 mt-1">
+                            查看指定日期的预约情况
+                        </p>
+                    </div>
+                    <button @click="closeAppointmentModal" class="btn btn-ghost btn-sm btn-square text-base-content/60">
+                        <X class="w-5 h-5" />
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6">
+                    <!-- Date Picker -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-base-content/80 mb-2">选择日期</label>
+                        <div class="relative">
+                            <input type="text" :value="formatDisplayDate(selectedAppointmentDate)" readonly
+                                class="input input-bordered w-full bg-base-100 cursor-pointer pl-10"
+                                placeholder="点击选择日期" @click="calendarOpen = !calendarOpen" />
+                            <Calendar class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
+
+                            <calendar-date v-if="calendarOpen"
+                                class="cally absolute top-full mt-2 z-10 bg-base-100 border border-base-300 shadow-lg rounded-box"
+                                :value="selectedAppointmentDate" @select="handleDateSelect" @change="handleDateChange"
+                                locale="zh-CN">
+                                <ChevronLeft slot="previous" class="w-4 h-4" />
+                                <ChevronRight slot="next" class="w-4 h-4" />
+                                <calendar-month></calendar-month>
+                            </calendar-date>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div v-if="appointmentModalLoading" class="flex justify-center py-12">
+                        <span class="loading loading-spinner loading-lg text-primary"></span>
+                    </div>
+
+                    <!-- Appointments List -->
+                    <div v-else>
+                        <div v-if="technicianAppointments.length === 0" class="text-center py-12 text-base-content/60">
+                            <Calendar class="w-16 h-16 mx-auto mb-4 opacity-30" />
+                            <p class="text-lg font-medium">暂无预约</p>
+                            <p class="text-sm mt-1">{{ selectedAppointmentDate }} 当天没有预约</p>
+                        </div>
+
+                        <div v-else class="space-y-4">
+                            <h4
+                                class="font-semibold flex items-center gap-2 mb-4 text-sm uppercase tracking-wider text-base-content/60">
+                                预约列表 ({{ technicianAppointments.length }})
+                            </h4>
+
+                            <div class="space-y-3 max-h-96 overflow-y-auto">
+                                <div v-for="appt in technicianAppointments" :key="appt.id"
+                                    class="p-4 border border-base-200 rounded-lg hover:border-primary/50 transition-colors bg-base-50/50">
+                                    <div class="flex justify-between items-start mb-3">
+                                        <div>
+                                            <div class="font-semibold text-base flex items-center gap-2">
+                                                {{ appt.member?.name || "未知客户" }}
+                                            </div>
+                                            <div class="text-sm text-base-content/60 mt-0.5">
+                                                {{ appt.service_item?.name || "未知服务" }}
+                                            </div>
+                                        </div>
+                                        <span class="badge badge-sm" :class="{
+                                            'badge-warning': appt.status === 'pending',
+                                            'badge-success': appt.status === 'completed',
+                                            'badge-info': appt.status === 'waitlist' || appt.status === 'waiting',
+                                            'badge-error': appt.status === 'cancelled',
+                                        }">
+                                            {{
+                                                appt.status === "pending" ? "待服务" :
+                                                    appt.status === "completed" ? "已完成" :
+                                                        appt.status === "waitlist" || appt.status === "waiting" ? "候补中" :
+                                                            appt.status === "cancelled" ? "已取消" : appt.status
+                                            }}
+                                        </span>
+                                    </div>
+
+                                    <div class="flex items-center gap-4 text-sm text-base-content/70">
+                                        <div class="flex items-center gap-1.5">
+                                            <Clock class="w-3.5 h-3.5" />
+                                            {{ appt.start_time.substring(11, 16) }} - {{ appt.end_time.substring(11, 16)
+                                            }}
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            <Banknote class="w-3.5 h-3.5" />
+                                            ¥{{ appt.actual_price }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="modal-action px-6 py-4 border-t border-base-200 bg-base-200/30">
+                    <button @click="closeAppointmentModal" class="btn btn-neutral">
+                        关闭
+                    </button>
+                </div>
+            </div>
+            <form method="dialog" class="modal-backdrop bg-base-content/20 backdrop-blur-sm">
+                <button @click="closeAppointmentModal">close</button>
+            </form>
+        </dialog>
+    </div>
+</template>
