@@ -123,7 +123,64 @@ func ListAppointments(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Success(appointments, ""))
+	// 获取所有预约ID，用于查询佣金信息
+	var appointmentIDs []uint
+	for _, appt := range appointments {
+		appointmentIDs = append(appointmentIDs, appt.ID)
+	}
+
+	// 查询所有相关的佣金记录
+	var fissionLogs []models.FissionLog
+	if len(appointmentIDs) > 0 {
+		db.DB.Where("order_id IN ?", appointmentIDs).Find(&fissionLogs)
+	}
+
+	// 将佣金记录映射到预约ID
+	commissionMap := make(map[uint]models.FissionLog)
+	var inviterIDs []uint
+	for _, log := range fissionLogs {
+		if log.OrderID != nil {
+			commissionMap[*log.OrderID] = log
+			inviterIDs = append(inviterIDs, log.InviterID)
+		}
+	}
+
+	// 查询所有受益人信息
+	var inviters []models.Member
+	inviterMap := make(map[uint]models.Member)
+	if len(inviterIDs) > 0 {
+		db.DB.Where("id IN ?", inviterIDs).Find(&inviters)
+		for _, inviter := range inviters {
+			inviterMap[inviter.ID] = inviter
+		}
+	}
+
+	// 组装响应数据
+	type AppointmentWithCommission struct {
+		models.Appointment
+		CommissionAmount float64        `json:"commission_amount"`
+		CommissionTo     *models.Member `json:"commission_to,omitempty"`
+	}
+
+	var result []AppointmentWithCommission
+	for _, appt := range appointments {
+		item := AppointmentWithCommission{
+			Appointment:      appt,
+			CommissionAmount: 0,
+			CommissionTo:     nil,
+		}
+
+		if fissionLog, ok := commissionMap[appt.ID]; ok {
+			item.CommissionAmount = fissionLog.CommissionAmount
+			if inviter, ok := inviterMap[fissionLog.InviterID]; ok {
+				item.CommissionTo = &inviter
+			}
+		}
+
+		result = append(result, item)
+	}
+
+	c.JSON(http.StatusOK, response.Success(result, ""))
 }
 
 // GetFissionRanking 获取分销排行榜
