@@ -116,15 +116,22 @@ const getMemberName = (id) => members.value.find(m => m.id === id)?.name || `会
               </td>
               <td class="px-6 py-4">
                 <div class="flex items-center gap-3">
-                  <Avatar :name="getTechName(appt.tech_id)" :size="32" class="ring-1 ring-base-300" />
-                  <span class="text-sm font-medium">{{ getTechName(appt.tech_id) }}</span>
+                  <Avatar :name="appt.technician?.name || getTechName(appt.tech_id)" :src="appt.technician?.avatar_url" :size="32" class="ring-1 ring-base-300" />
+                  <span class="text-sm font-medium">{{ appt.technician?.name || getTechName(appt.tech_id) }}</span>
                 </div>
               </td>
               <td class="px-6 py-4 text-base-content/60 text-sm">
                 {{ formatDate(appt.end_time || appt.EndTime) }}
               </td>
-              <td class="px-6 py-4 font-medium text-success">
-                ¥{{ (appt.actual_price || appt.ActualPrice).toFixed(2) }}
+              <td class="px-6 py-4">
+                <div class="flex flex-col gap-1">
+                  <span class="font-medium text-success">
+                    ¥{{ (appt.actual_price || appt.ActualPrice).toFixed(2) }}
+                  </span>
+                  <span v-if="appt.commission_amount > 0" class="text-xs text-warning">
+                    佣金 ¥{{ appt.commission_amount.toFixed(2) }} → {{ appt.commission_to?.name || '未知' }}
+                  </span>
+                </div>
               </td>
             </tr>
           </tbody>
