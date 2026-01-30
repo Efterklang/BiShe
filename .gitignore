@@ -1,0 +1,7 @@
+assets
+docs
+.trae/documents
+client/bun.lock
+server/smartspa-admin
+.envrc
+docs/API/appointment_interfaces.md
