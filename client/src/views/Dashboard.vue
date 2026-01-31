@@ -5,7 +5,6 @@ import {
     TrendingUp,
     TrendingDown,
     UserPlus,
-    Activity,
     AlertCircle,
     Trophy,
     Package,
@@ -28,8 +27,8 @@ const stats = ref({
     dailyRevenue: 0,
     revenueGrowth: 0,
     newMembers: 0,
-    activeTechs: 0,
-    occupancyRate: 0,
+    monthlyNewMembers: 0,
+    pendingAppointments: 0,
 });
 
 const fissionRanking = ref([]);
@@ -142,7 +141,7 @@ const formatDateLabel = computed(() => {
         </div>
 
         <!-- Stats Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Stat Card 1 -->
             <div class="card bg-base-100 border border-base-300 shadow-sm">
                 <div class="card-body">
@@ -176,21 +175,7 @@ const formatDateLabel = computed(() => {
                         </div>
                         <div class="stat-title">新增会员</div>
                         <div class="stat-value">{{ stats.newMembers }}</div>
-                        <div class="stat-desc">本月累计: 128</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Stat Card 3 -->
-            <div class="card bg-base-100 border border-base-300 shadow-sm">
-                <div class="card-body">
-                    <div class="stat">
-                        <div class="stat-figure text-secondary">
-                            <Activity class="w-8 h-8" />
-                        </div>
-                        <div class="stat-title">技师负载率</div>
-                        <div class="stat-value">{{ formatNumber(stats.occupancyRate) }}%</div>
-                        <div class="stat-desc">活跃技师: {{ stats.activeTechs }}</div>
+                        <div class="stat-desc">本月累计: {{ stats.monthlyNewMembers }}</div>
                     </div>
                 </div>
             </div>
@@ -203,8 +188,8 @@ const formatDateLabel = computed(() => {
                             <AlertCircle class="w-8 h-8" />
                         </div>
                         <div class="stat-title">待处理预约</div>
-                        <div class="stat-value">8</div>
-                        <div class="stat-desc text-warning">需要关注</div>
+                        <div class="stat-value">{{ stats.pendingAppointments }}</div>
+                        <div class="stat-desc text-warning">包含候补与待服务</div>
                     </div>
                 </div>
             </div>

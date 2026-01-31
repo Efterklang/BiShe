@@ -21,24 +21,25 @@ func GetDashboardStats(c *gin.Context) {
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	yesterday := today.AddDate(0, 0, -1)
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
-	// 1. 今日营收（已完成预约的实际价格总和）
+	// 1. 今日营收（从 orders 表汇总）
 	var dailyRevenue float64
-	if err := db.DB.Model(&models.Appointment{}).
-		Where("status = ? AND DATE(end_time) = DATE(?)", "completed", today).
-		Select("COALESCE(SUM(actual_price), 0)").
+	if err := db.DB.Model(&models.Order{}).
+		Where("DATE(created_at) = DATE(?)", today).
+		Select("COALESCE(SUM(paid_amount), 0)").
 		Scan(&dailyRevenue).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate daily revenue", err))
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate daily revenue", err.Error()))
 		return
 	}
 
 	// 昨日营收（用于计算增长率）
 	var yesterdayRevenue float64
-	if err := db.DB.Model(&models.Appointment{}).
-		Where("status = ? AND DATE(end_time) = DATE(?)", "completed", yesterday).
-		Select("COALESCE(SUM(actual_price), 0)").
+	if err := db.DB.Model(&models.Order{}).
+		Where("DATE(created_at) = DATE(?)", yesterday).
+		Select("COALESCE(SUM(paid_amount), 0)").
 		Scan(&yesterdayRevenue).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate yesterday revenue", err))
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate yesterday revenue", err.Error()))
 		return
 	}
 
@@ -53,52 +54,34 @@ func GetDashboardStats(c *gin.Context) {
 	if err := db.DB.Model(&models.Member{}).
 		Where("DATE(created_at) = DATE(?)", today).
 		Count(&newMembers).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count new members", err))
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count new members", err.Error()))
 		return
 	}
 
-	// 3. 活跃技师数量（状态为 free 或 booked 的技师）
-	var activeTechs int64
-	if err := db.DB.Model(&models.Technician{}).
-		Where("status IN ?", []int{0, 1}).
-		Count(&activeTechs).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count active techs", err))
+	// 本月累计新增会员
+	var monthlyNewMembers int64
+	if err := db.DB.Model(&models.Member{}).
+		Where("created_at >= ?", monthStart).
+		Count(&monthlyNewMembers).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count monthly new members", err.Error()))
 		return
 	}
 
-	// 总技师数
-	var totalTechs int64
-	if err := db.DB.Model(&models.Technician{}).
-		Count(&totalTechs).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count total techs", err))
-		return
-	}
-
-	// 4. 技师负载率（今日已完成预约数 / 总技师数 / 8小时 * 100）
-	var todayCompletedAppointments int64
+	// 3. 待处理预约（pending + waiting）
+	var pendingAppointments int64
 	if err := db.DB.Model(&models.Appointment{}).
-		Where("status = ? AND DATE(start_time) = DATE(?)", "completed", today).
-		Count(&todayCompletedAppointments).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count today appointments", err))
+		Where("status IN ?", []string{"pending", "waiting"}).
+		Count(&pendingAppointments).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count pending appointments", err.Error()))
 		return
-	}
-
-	var occupancyRate float64
-	if totalTechs > 0 {
-		// 假设每个技师每天工作8小时，平均每个服务1.5小时
-		maxCapacity := float64(totalTechs) * 8 / 1.5
-		occupancyRate = (float64(todayCompletedAppointments) / maxCapacity) * 100
-		if occupancyRate > 100 {
-			occupancyRate = 100
-		}
 	}
 
 	stats := gin.H{
-		"dailyRevenue":  dailyRevenue,
-		"revenueGrowth": revenueGrowth,
-		"newMembers":    newMembers,
-		"activeTechs":   activeTechs,
-		"occupancyRate": occupancyRate,
+		"dailyRevenue":        dailyRevenue,
+		"revenueGrowth":       revenueGrowth,
+		"newMembers":          newMembers,
+		"monthlyNewMembers":   monthlyNewMembers,
+		"pendingAppointments": pendingAppointments,
 	}
 
 	c.JSON(http.StatusOK, response.Success(stats, ""))
