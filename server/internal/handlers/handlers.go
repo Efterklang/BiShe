@@ -13,6 +13,7 @@ import (
 	"server/pkg/util"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // GetDashboardStats 获取仪表盘统计数据
@@ -129,19 +130,19 @@ func ListAppointments(c *gin.Context) {
 		appointmentIDs = append(appointmentIDs, appt.ID)
 	}
 
-	// 查询所有相关的佣金记录
-	var fissionLogs []models.FissionLog
+	var orders []models.Order
 	if len(appointmentIDs) > 0 {
-		db.DB.Where("order_id IN ?", appointmentIDs).Find(&fissionLogs)
+		db.DB.Where("appointment_id IN ?", appointmentIDs).Find(&orders)
 	}
 
-	// 将佣金记录映射到预约ID
-	commissionMap := make(map[uint]models.FissionLog)
+	commissionMap := make(map[uint]models.Order)
 	var inviterIDs []uint
-	for _, log := range fissionLogs {
-		if log.OrderID != nil {
-			commissionMap[*log.OrderID] = log
-			inviterIDs = append(inviterIDs, log.InviterID)
+	for _, order := range orders {
+		if order.AppointmentID != nil {
+			commissionMap[*order.AppointmentID] = order
+			if order.InviterID != nil {
+				inviterIDs = append(inviterIDs, *order.InviterID)
+			}
 		}
 	}
 
@@ -170,10 +171,12 @@ func ListAppointments(c *gin.Context) {
 			CommissionTo:     nil,
 		}
 
-		if fissionLog, ok := commissionMap[appt.ID]; ok {
-			item.CommissionAmount = fissionLog.CommissionAmount
-			if inviter, ok := inviterMap[fissionLog.InviterID]; ok {
-				item.CommissionTo = &inviter
+		if order, ok := commissionMap[appt.ID]; ok {
+			item.CommissionAmount = order.CommissionAmount
+			if order.InviterID != nil {
+				if inviter, ok := inviterMap[*order.InviterID]; ok {
+					item.CommissionTo = &inviter
+				}
 			}
 		}
 
@@ -410,6 +413,8 @@ func CompleteAppointment(c *gin.Context) {
 	tx := db.DB.Begin()
 
 	member := appt.Member
+	inviterID := member.ReferrerID
+	commissionInCents := int64(0)
 
 	// 处理余额扣款
 	if req.BalanceAmount > 0 {
@@ -456,7 +461,7 @@ func CompleteAppointment(c *gin.Context) {
 		commissionAmount := util.CalculateRate(appt.ActualPrice, config.GlobalCommission.ReferralRate)
 
 		// 转换为分进行后续整数校验（为了保持原有逻辑的严格性）
-		commissionInCents := util.ToCents(commissionAmount)
+		commissionInCents = util.ToCents(commissionAmount)
 		priceInCents := util.ToCents(appt.ActualPrice)
 
 		// 精度校验: 确保佣金为非负数
@@ -509,13 +514,34 @@ func CompleteAppointment(c *gin.Context) {
 				InviterID:        referrer.ID,
 				InviteeID:        member.ID,
 				CommissionAmount: float64(commissionInCents) / 100,
-				OrderID:          &appt.ID,
 			}
 			if err := tx.Create(&fissionLog).Error; err != nil {
 				tx.Rollback()
 				c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to create fission log", nil))
 				return
 			}
+		}
+	}
+
+	var existingOrder models.Order
+	if err := tx.Where("appointment_id = ?", appt.ID).First(&existingOrder).Error; err != nil && err != gorm.ErrRecordNotFound {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to check existing order", err.Error()))
+		return
+	}
+	if existingOrder.ID == 0 {
+		order := models.Order{
+			MemberID:         appt.MemberID,
+			InviterID:        inviterID,
+			PaidAmount:       appt.ActualPrice,
+			CommissionAmount: float64(commissionInCents) / 100,
+			OrderType:        "service",
+			AppointmentID:    &appt.ID,
+		}
+		if err := tx.Create(&order).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, "Failed to create order", err.Error()))
+			return
 		}
 	}
 

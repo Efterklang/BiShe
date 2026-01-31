@@ -57,6 +57,7 @@ func migrate(database *gorm.DB) error {
 		&models.Technician{},
 		&models.ServiceProduct{},
 		&models.Appointment{},
+		&models.Order{},
 		&models.Schedule{},
 		&models.FissionLog{},
 		&models.PhysicalProduct{},

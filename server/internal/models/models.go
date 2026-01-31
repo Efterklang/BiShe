@@ -19,8 +19,8 @@ type User struct {
 // BaseModel replaces gorm.Model with JSON tags
 type BaseModel struct {
 	ID        uint           `gorm:"primarykey" json:"id"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
+	CreatedAt time.Time      `gorm:"index" json:"created_at"`
+	UpdatedAt time.Time      `gorm:"index" json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
@@ -76,6 +76,21 @@ type Appointment struct {
 	PaidCash       float64        `gorm:"type:decimal(10,2);default:0" json:"paid_cash"`    // 现金支付金额
 }
 
+type Order struct {
+	BaseModel
+	MemberID         uint          `gorm:"index;not null" json:"member_id"`
+	Member           Member        `gorm:"foreignKey:MemberID" json:"member"`
+	InviterID        *uint         `gorm:"index" json:"inviter_id,omitempty"`
+	Inviter          *Member       `gorm:"foreignKey:InviterID" json:"inviter,omitempty"`
+	PaidAmount       float64       `gorm:"type:decimal(12,2);not null" json:"paid_amount"`
+	CommissionAmount float64       `gorm:"type:decimal(12,2);not null;default:0" json:"commission_amount"`
+	OrderType        string        `gorm:"size:16;not null;index;check:chk_orders_valid,((order_type IN ('service','physical')) AND (paid_amount >= 0) AND (commission_amount >= 0) AND (commission_amount <= paid_amount) AND ((order_type='service' AND appointment_id IS NOT NULL AND inventory_log_id IS NULL) OR (order_type='physical' AND inventory_log_id IS NOT NULL AND appointment_id IS NULL)))" json:"order_type"`
+	AppointmentID    *uint         `gorm:"uniqueIndex;index" json:"appointment_id,omitempty"`
+	Appointment      *Appointment  `gorm:"foreignKey:AppointmentID" json:"appointment,omitempty"`
+	InventoryLogID   *uint         `gorm:"uniqueIndex;index" json:"inventory_log_id,omitempty"`
+	InventoryLog     *InventoryLog `gorm:"foreignKey:InventoryLogID" json:"inventory_log,omitempty"`
+}
+
 // Schedule represents a technician's daily availability
 type Schedule struct {
 	BaseModel
@@ -91,7 +106,6 @@ type FissionLog struct {
 	InviterID        uint    `gorm:"index;not null" json:"inviter_id"`
 	InviteeID        uint    `gorm:"index;not null" json:"invitee_id"`
 	CommissionAmount float64 `gorm:"type:decimal(10,2);not null" json:"commission_amount"`
-	OrderID          *uint   `gorm:"index" json:"order_id"`
 }
 
 // PhysicalProduct represents physical products for sale in the store.

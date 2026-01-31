@@ -59,6 +59,7 @@ func main() {
 		api.GET("/dashboard/service-ranking", dashboardHandler.GetServiceRanking)
 		api.GET("/dashboard/product-sales", dashboardHandler.GetProductSalesOverview)
 		api.GET("/dashboard/monthly-stats", dashboardHandler.GetMonthlyStats)
+		api.GET("/dashboard/marketing", dashboardHandler.GetMarketingMetrics)
 
 		// Appointments (both manager and operator)
 		api.GET("/appointments", handlers.ListAppointments)
@@ -85,6 +86,9 @@ func main() {
 		// Members (both manager and operator)
 		api.GET("/members", handlers.ListMembers)
 		api.POST("/members", handlers.CreateMember)
+
+		api.POST("/orders", handlers.CreateOrder)
+		api.GET("/orders", handlers.ListOrders)
 
 		// Products (read for all, write for manager only)
 		api.GET("/products", handlers.ListProducts)

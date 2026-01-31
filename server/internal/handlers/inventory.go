@@ -26,7 +26,7 @@ type InventoryChangeRequest struct {
 func ListInventoryLogs(c *gin.Context) {
 	database := db.GetDB()
 
-	query := database.Preload("Product").Preload("Operator").Order("created_at DESC")
+	query := database.Preload("Product").Preload("Operator").Preload("Member").Order("created_at DESC")
 
 	// Filter by product ID if specified
 	if productIDStr := c.Query("product_id"); productIDStr != "" {
@@ -61,8 +61,67 @@ func ListInventoryLogs(c *gin.Context) {
 		return
 	}
 
+	// 查询所有相关的佣金记录
+	var logIDs []uint
+	for _, log := range logs {
+		logIDs = append(logIDs, log.ID)
+	}
+
+	var orders []models.Order
+	if len(logIDs) > 0 {
+		database.Where("inventory_log_id IN ?", logIDs).Find(&orders)
+	}
+
+	commissionMap := make(map[uint]models.Order)
+	var inviterIDs []uint
+	for _, order := range orders {
+		if order.InventoryLogID != nil {
+			commissionMap[*order.InventoryLogID] = order
+			if order.InviterID != nil {
+				inviterIDs = append(inviterIDs, *order.InviterID)
+			}
+		}
+	}
+
+	// 查询所有受益人信息
+	var inviters []models.Member
+	inviterMap := make(map[uint]models.Member)
+	if len(inviterIDs) > 0 {
+		database.Where("id IN ?", inviterIDs).Find(&inviters)
+		for _, inviter := range inviters {
+			inviterMap[inviter.ID] = inviter
+		}
+	}
+
+	// 组装响应数据
+	type InventoryLogWithCommission struct {
+		models.InventoryLog
+		CommissionAmount float64        `json:"commission_amount"`
+		CommissionTo     *models.Member `json:"commission_to,omitempty"`
+	}
+
+	var result []InventoryLogWithCommission
+	for _, log := range logs {
+		item := InventoryLogWithCommission{
+			InventoryLog:     log,
+			CommissionAmount: 0,
+			CommissionTo:     nil,
+		}
+
+		if order, ok := commissionMap[log.ID]; ok {
+			item.CommissionAmount = order.CommissionAmount
+			if order.InviterID != nil {
+				if inviter, ok := inviterMap[*order.InviterID]; ok {
+					item.CommissionTo = &inviter
+				}
+			}
+		}
+
+		result = append(result, item)
+	}
+
 	c.JSON(http.StatusOK, response.Success(gin.H{
-		"logs":      logs,
+		"logs":      result,
 		"total":     total,
 		"page":      page,
 		"page_size": pageSize,
@@ -118,6 +177,10 @@ func CreateInventoryChange(c *gin.Context) {
 	}
 	if req.ActionType == "sale" && req.ChangeAmount >= 0 {
 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, "Sale amount must be negative", nil))
+		return
+	}
+	if req.ActionType == "sale" && req.MemberID == nil {
+		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, "Sale requires member_id to create order", nil))
 		return
 	}
 
@@ -183,11 +246,15 @@ func CreateInventoryChange(c *gin.Context) {
 		calculatedSaleAmount = float64(-req.ChangeAmount) * product.RetailPrice
 	}
 
+	var inviterID *uint
+	commissionInCents := int64(0)
+
 	if req.ActionType == "sale" && req.MemberID != nil && calculatedSaleAmount > 0 {
 		var member models.Member
 		if err := tx.First(&member, *req.MemberID).Error; err == nil && member.ReferrerID != nil {
+			inviterID = member.ReferrerID
 			commissionAmount := util.CalculateRate(calculatedSaleAmount, config.GlobalCommission.ReferralRate)
-			commissionInCents := util.ToCents(commissionAmount)
+			commissionInCents = util.ToCents(commissionAmount)
 			saleAmountInCents := util.ToCents(calculatedSaleAmount)
 
 			if commissionInCents >= 0 && commissionInCents <= saleAmountInCents {
@@ -212,6 +279,22 @@ func CreateInventoryChange(c *gin.Context) {
 					}
 				}
 			}
+		}
+	}
+
+	if req.ActionType == "sale" && req.MemberID != nil && calculatedSaleAmount > 0 {
+		order := models.Order{
+			MemberID:         *req.MemberID,
+			InviterID:        inviterID,
+			PaidAmount:       calculatedSaleAmount,
+			CommissionAmount: float64(commissionInCents) / 100,
+			OrderType:        "physical",
+			InventoryLogID:   &inventoryLog.ID,
+		}
+		if err := tx.Create(&order).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, "Failed to create order", err.Error()))
+			return
 		}
 	}
 
