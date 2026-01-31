@@ -43,6 +43,7 @@ jobs:
           commit_message: Apply Biome formatting
           commit_options: '--no-verify'
           repository: .
+          file_pattern: 'client/*'
           create_pull_request: true
           pr_title: 'Apply Biome formatting fixes'
           pr_body: |

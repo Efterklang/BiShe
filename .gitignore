@@ -5,3 +5,4 @@ client/bun.lock
 server/smartspa-admin
 .envrc
 docs/API/appointment_interfaces.md
+**/node_modules/

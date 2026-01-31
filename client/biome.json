@@ -7,7 +7,7 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**", "!**/*.min.js", "!**/*.vue", "!node_modules", "!.vscode"]
+		"includes": ["**", "!**/*.min.js", "!**/*.vue", "!**/node_modules/**", "!.vscode/**"]
 	},
 	"formatter": {
 		"enabled": true,
