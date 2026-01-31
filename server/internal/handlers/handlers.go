@@ -18,15 +18,20 @@ import (
 
 // GetDashboardStats 获取仪表盘统计数据
 func GetDashboardStats(c *gin.Context) {
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	yesterday := today.AddDate(0, 0, -1)
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	loc := config.GlobalBusinessHours.TimeLocation
+	if loc == nil {
+		loc = time.Local
+	}
+	now := time.Now().In(loc)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	tomorrowStart := todayStart.AddDate(0, 0, 1)
+	yesterdayStart := todayStart.AddDate(0, 0, -1)
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
 
 	// 1. 今日营收（从 orders 表汇总）
 	var dailyRevenue float64
 	if err := db.DB.Model(&models.Order{}).
-		Where("DATE(created_at) = DATE(?)", today).
+		Where("created_at >= ? AND created_at < ?", todayStart, tomorrowStart).
 		Select("COALESCE(SUM(paid_amount), 0)").
 		Scan(&dailyRevenue).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate daily revenue", err.Error()))
@@ -36,7 +41,7 @@ func GetDashboardStats(c *gin.Context) {
 	// 昨日营收（用于计算增长率）
 	var yesterdayRevenue float64
 	if err := db.DB.Model(&models.Order{}).
-		Where("DATE(created_at) = DATE(?)", yesterday).
+		Where("created_at >= ? AND created_at < ?", yesterdayStart, todayStart).
 		Select("COALESCE(SUM(paid_amount), 0)").
 		Scan(&yesterdayRevenue).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate yesterday revenue", err.Error()))
@@ -52,7 +57,7 @@ func GetDashboardStats(c *gin.Context) {
 	// 2. 今日新增会员
 	var newMembers int64
 	if err := db.DB.Model(&models.Member{}).
-		Where("DATE(created_at) = DATE(?)", today).
+		Where("created_at >= ? AND created_at < ?", todayStart, tomorrowStart).
 		Count(&newMembers).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count new members", err.Error()))
 		return

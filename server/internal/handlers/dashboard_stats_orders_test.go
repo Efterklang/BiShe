@@ -10,6 +10,7 @@ import (
 	"server/internal/db"
 	"server/internal/models"
 	"server/internal/response"
+	"server/pkg/config"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,10 +21,14 @@ func TestGetDashboardStats_FromOrders(t *testing.T) {
 	db.DB = testDB
 	defer func() { db.DB = originalDB }()
 
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	originalLoc := config.GlobalBusinessHours.TimeLocation
+	config.GlobalBusinessHours.TimeLocation = time.UTC
+	defer func() { config.GlobalBusinessHours.TimeLocation = originalLoc }()
+
+	now := time.Now().In(time.UTC)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	yesterday := today.AddDate(0, 0, -1)
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 
 	memberToday := models.Member{Name: "A", Phone: "10000000041", InvitationCode: "code-10000000041"}
 	memberMonth := models.Member{Name: "B", Phone: "10000000042", InvitationCode: "code-10000000042"}
