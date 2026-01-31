@@ -4,7 +4,7 @@ import { getAppointments } from '../api/appointments';
 import { getTechnicians } from '../api/technicians';
 import { getServices } from '../api/services';
 import { getMembers } from '../api/members';
-import { getProducts, getProductInventoryLogs } from '../api/products';
+import { getProducts, getAllInventoryLogs } from '../api/products';
 import Avatar from '../components/Avatar.vue';
 import { History, Package, User, Clock, ShoppingBag } from 'lucide-vue-next';
 
@@ -36,12 +36,11 @@ const fetchData = async () => {
     if (productRes.status === 'fulfilled') products.value = productRes.value || [];
 
     // Fetch product sales (inventory logs with action_type='sale')
-    const logsRes = await getProductInventoryLogs();
-    if (logsRes) {
-      // Filter only sale records and sort by created_at desc
-      inventoryLogs.value = logsRes
-        .filter(log => log.action_type === 'sale')
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const logsRes = await getAllInventoryLogs({ action_type: 'sale' });
+    if (logsRes && logsRes.logs) {
+      inventoryLogs.value = logsRes.logs;
+    } else if (Array.isArray(logsRes)) {
+      inventoryLogs.value = logsRes;
     }
 
   } catch (error) {

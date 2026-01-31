@@ -81,7 +81,12 @@ export const getInventoryLogs = (params = {}) => {
  * @returns {Promise<{logs: array, total: number}>}
  */
 export const getProductInventoryLogs = (productId) => {
-	return api.get(`/api/inventory/products/${productId}/logs`);
+	return api.get(`/products/${productId}/inventory-logs`).then((res) => res.data.data);
+};
+
+// Get all inventory sale logs for history page
+export const getAllInventoryLogs = (params = {}) => {
+	return api.get('/inventory-logs', { params }).then((res) => res.data.data);
 };
 
 /**

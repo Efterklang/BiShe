@@ -116,19 +116,13 @@
 					<div class="mt-4 bg-base-200/50 rounded-lg p-3">
 						<div class="flex items-center justify-between">
 							<span class="text-sm text-base-content/60 font-medium">当前库存</span>
-							<div class="flex items-center gap-3">
-								<span class="font-bold text-lg font-mono" :class="{
-									'text-error': product.stock === 0,
-									'text-warning': product.stock > 0 && product.stock < 10,
-									'text-success': product.stock >= 10,
-								}">
-									{{ product.stock }}
-								</span>
-								<button @click="openInventoryModal(product)" class="btn btn-xs btn-ghost btn-square"
-									title="查看库存记录">
-									<History class="w-4 h-4 text-base-content/60" />
-								</button>
-							</div>
+							<span class="font-bold text-lg font-mono" :class="{
+								'text-error': product.stock === 0,
+								'text-warning': product.stock > 0 && product.stock < 10,
+								'text-success': product.stock >= 10,
+							}">
+								{{ product.stock }}
+							</span>
 						</div>
 					</div>
 
