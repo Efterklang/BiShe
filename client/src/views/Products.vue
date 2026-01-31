@@ -302,6 +302,31 @@
 								class="textarea textarea-bordered w-full" rows="2"></textarea>
 						</div>
 
+						<!-- 出库时可选：会员和销售金额 -->
+						<template v-if="stockChangeType === 'sale'">
+							<div class="grid grid-cols-2 gap-4">
+								<div>
+									<label class="label">
+										<span class="label-text font-medium">购买者（可选）</span>
+									</label>
+									<select v-model="stockChangeMemberId" class="select select-bordered w-full">
+										<option :value="null">-- 选择会员（可选）--</option>
+										<option v-for="member in members" :key="member.id" :value="member.id">
+											{{ member.name }} ({{ member.phone }})
+										</option>
+									</select>
+								</div>
+								<div>
+									<label class="label">
+										<span class="label-text font-medium">销售金额（可选）</span>
+									</label>
+									<input v-model.number="stockChangeSaleAmount" type="number" step="0.01" min="0"
+										:placeholder="`建议: ¥${selectedProduct?.retail_price || 0}`"
+										class="input input-bordered w-full" />
+								</div>
+							</div>
+						</template>
+
 						<div class="pt-2">
 							<button type="submit" class="btn w-full"
 								:class="stockChangeType === 'restock' ? 'btn-success text-white' : 'btn-warning text-white'"
@@ -422,6 +447,7 @@ import {
 	createInventoryChange,
 	getProductInventoryLogs,
 } from "../api/products";
+import { getMembers } from "../api/members";
 import { usePermission } from "../composables/usePermission";
 import {
 	Plus,
@@ -460,6 +486,9 @@ const selectedProduct = ref(null);
 const stockChangeType = ref("restock");
 const stockChangeAmount = ref(0);
 const stockChangeRemark = ref("");
+const stockChangeMemberId = ref(null);
+const stockChangeSaleAmount = ref(null);
+const members = ref([]);
 const inventoryLogs = ref([]);
 const loadingInventory = ref(false);
 
@@ -498,9 +527,19 @@ const fetchStats = async () => {
 	}
 };
 
+const fetchMembers = async () => {
+	try {
+		const res = await getMembers();
+		members.value = res || [];
+	} catch (error) {
+		console.error("Failed to load members:", error);
+	}
+};
+
 onMounted(() => {
 	fetchProducts();
 	fetchStats();
+	fetchMembers();
 });
 
 const openCreateModal = () => {
@@ -584,6 +623,8 @@ const openStockChangeModal = (product, type) => {
 	stockChangeType.value = type;
 	stockChangeAmount.value = type === "restock" ? 1 : -1;
 	stockChangeRemark.value = "";
+	stockChangeMemberId.value = null;
+	stockChangeSaleAmount.value = type === "sale" ? product.retail_price : null;
 	stockModalRef.value?.showModal();
 };
 
@@ -593,28 +634,40 @@ const closeStockModal = () => {
 
 const handleStockChange = async () => {
 	if (!selectedProduct.value) return;
+	if (stockChangeAmount.value === 0) {
+		toggleToast("数量不能为0", "error");
+		return;
+	}
 
-	submitting.value = true;
+	const payload = {
+		product_id: selectedProduct.value.id,
+		change_amount: stockChangeAmount.value,
+		action_type: stockChangeType.value,
+		remark: stockChangeRemark.value,
+	};
+
+	// 出库时可选添加会员和销售金额
+	if (stockChangeType.value === "sale") {
+		if (stockChangeMemberId.value) {
+			payload.member_id = stockChangeMemberId.value;
+		}
+		if (stockChangeSaleAmount.value && stockChangeSaleAmount.value > 0) {
+			payload.sale_amount = stockChangeSaleAmount.value;
+		}
+	}
+
 	try {
-		const changeAmount =
-			stockChangeType.value === "restock"
-				? Math.abs(stockChangeAmount.value)
-				: -Math.abs(stockChangeAmount.value);
+		await createInventoryChange(payload);
 
-		await createInventoryChange({
-			product_id: selectedProduct.value.id,
-			change_amount: changeAmount,
-			action_type: stockChangeType.value,
-			remark: stockChangeRemark.value,
-		});
-
-		closeStockModal();
-		await fetchProducts();
-		await fetchStats();
+		toggleToast(
+			`${stockChangeType.value === "restock" ? "入库" : "出库"}成功`,
+			"success"
+		);
+		stockModalRef.value?.close();
+		fetchProducts();
+		fetchStats();
 	} catch (error) {
-		alert("操作失败: " + (error.message || "未知错误"));
-	} finally {
-		submitting.value = false;
+		toggleToast("操作失败", "error");
 	}
 };
 
