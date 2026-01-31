@@ -93,6 +93,11 @@ const getAvatarTextColor = (memberId) => {
   return textColors[index];
 };
 
+// 根据 referrer_id 获取推荐人信息
+const getReferrer = (referrerId) => {
+  if (!referrerId) return null;
+  return members.value.find(m => m.id === referrerId || m.ID === referrerId);
+};
 
 </script>
 
@@ -125,7 +130,7 @@ const getAvatarTextColor = (memberId) => {
               <th class="px-6 py-3 font-medium">年消费总额</th>
               <th class="px-6 py-3 font-medium">余额</th>
               <th class="px-6 py-3 font-medium">邀请码</th>
-              <th class="px-6 py-3 font-medium">推荐人ID</th>
+              <th class="px-6 py-3 font-medium">推荐人</th>
               <th class="px-6 py-3 font-medium text-right">操作</th>
             </tr>
           </thead>
@@ -166,8 +171,13 @@ const getAvatarTextColor = (memberId) => {
                   {{ member.invitation_code || member.InvitationCode }}
                 </code>
               </td>
-              <td class="px-6 py-4 text-base-content/50 font-mono text-xs">{{ member.referrer_id || member.ReferrerID ||
-                '-' }}</td>
+              <td class="px-6 py-4">
+                <div v-if="getReferrer(member.referrer_id || member.ReferrerID)" class="flex items-center gap-2">
+                  <Avatar :name="getReferrer(member.referrer_id || member.ReferrerID).name" size="sm" />
+                  <span class="text-sm text-base-content">{{ getReferrer(member.referrer_id || member.ReferrerID).name }}</span>
+                </div>
+                <span v-else class="text-base-content/40">-</span>
+              </td>
               <td class="px-6 py-4 text-right">
                 <button class="btn btn-ghost btn-xs">详情</button>
               </td>

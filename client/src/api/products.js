@@ -86,7 +86,7 @@ export const getProductInventoryLogs = (productId) => {
 
 // Get all inventory sale logs for history page
 export const getAllInventoryLogs = (params = {}) => {
-	return api.get('/inventory-logs', { params }).then((res) => res.data.data);
+	return api.get('/api/inventory/logs', { params });
 };
 
 /**
