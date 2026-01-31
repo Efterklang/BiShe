@@ -7,16 +7,20 @@ import (
 	"server/internal/db"
 	"server/internal/models"
 	"server/internal/response"
+	"server/pkg/config"
+	"server/pkg/util"
 
 	"github.com/gin-gonic/gin"
 )
 
 // InventoryChangeRequest represents the request body for inventory changes
 type InventoryChangeRequest struct {
-	ProductID    uint   `json:"product_id" binding:"required"`
-	ChangeAmount int    `json:"change_amount" binding:"required"`
-	ActionType   string `json:"action_type" binding:"required,oneof=restock sale adjustment"`
-	Remark       string `json:"remark"`
+	ProductID    uint     `json:"product_id" binding:"required"`
+	ChangeAmount int      `json:"change_amount" binding:"required"`
+	ActionType   string   `json:"action_type" binding:"required,oneof=restock sale adjustment"`
+	MemberID     *uint    `json:"member_id"`   // 购买者ID（销售时可选）
+	SaleAmount   *float64 `json:"sale_amount"` // 销售金额（销售时可选）
+	Remark       string   `json:"remark"`
 }
 
 // ListInventoryLogs returns all inventory logs
@@ -159,10 +163,12 @@ func CreateInventoryChange(c *gin.Context) {
 	inventoryLog := models.InventoryLog{
 		ProductID:    req.ProductID,
 		OperatorID:   userID.(uint),
+		MemberID:     req.MemberID,
 		ChangeAmount: req.ChangeAmount,
 		ActionType:   req.ActionType,
 		BeforeStock:  beforeStock,
 		AfterStock:   afterStock,
+		SaleAmount:   req.SaleAmount,
 		Remark:       req.Remark,
 	}
 
@@ -170,6 +176,39 @@ func CreateInventoryChange(c *gin.Context) {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to create inventory log", nil))
 		return
+	}
+
+	// Fission commission logic for product sales with member
+	if req.ActionType == "sale" && req.MemberID != nil && req.SaleAmount != nil && *req.SaleAmount > 0 {
+		var member models.Member
+		if err := tx.First(&member, *req.MemberID).Error; err == nil && member.ReferrerID != nil {
+			commissionAmount := util.CalculateRate(*req.SaleAmount, config.GlobalCommission.ReferralRate)
+			commissionInCents := util.ToCents(commissionAmount)
+			saleAmountInCents := util.ToCents(*req.SaleAmount)
+
+			if commissionInCents >= 0 && commissionInCents <= saleAmountInCents {
+				var referrer models.Member
+				if err := tx.First(&referrer, *member.ReferrerID).Error; err == nil {
+					oldBalance := referrer.Balance
+					referrer.Balance += float64(commissionInCents) / 100
+
+					if referrer.Balance >= 0 {
+						expectedChange := float64(commissionInCents) / 100
+						actualChange := referrer.Balance - oldBalance
+						if actualChange >= expectedChange-0.01 && actualChange <= expectedChange+0.01 {
+							if err := tx.Save(&referrer).Error; err == nil {
+								fissionLog := models.FissionLog{
+									InviterID:        referrer.ID,
+									InviteeID:        member.ID,
+									CommissionAmount: float64(commissionInCents) / 100,
+								}
+								tx.Create(&fissionLog)
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	if err := tx.Commit().Error; err != nil {
