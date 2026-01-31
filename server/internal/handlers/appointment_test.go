@@ -27,6 +27,7 @@ func TestListAppointments_PreloadFix(t *testing.T) {
 		&models.Technician{},
 		&models.ServiceProduct{},
 		&models.Appointment{},
+		&models.Order{},
 	)
 	if err != nil {
 		t.Fatalf("Failed to migrate: %v", err)
