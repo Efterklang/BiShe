@@ -84,6 +84,8 @@ func CreateOrder(c *gin.Context) {
 			OrderType:        "service",
 			AppointmentID:    req.AppointmentID,
 		}
+		order.CreatedAt = appt.EndTime
+		order.UpdatedAt = appt.EndTime
 		if err := tx.Create(&order).Error; err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, "Failed to create order", err.Error()))
@@ -141,6 +143,8 @@ func CreateOrder(c *gin.Context) {
 		OrderType:        "physical",
 		InventoryLogID:   req.InventoryLogID,
 	}
+	order.CreatedAt = invLog.CreatedAt
+	order.UpdatedAt = invLog.CreatedAt
 	if err := tx.Create(&order).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusBadRequest, response.Error(http.StatusBadRequest, "Failed to create order", err.Error()))
@@ -227,4 +231,3 @@ func parseTimeRange(startStr, endStr string) (time.Time, time.Time) {
 	}
 	return start, end
 }
-
