@@ -132,31 +132,30 @@ func (h *DashboardHandler) GetRevenueTrend(c *gin.Context) {
 		ProductRevenue float64 `json:"product_revenue"`
 	}
 
-	// 统计服务营收（从 appointments 表）
+	// 统计服务营收（从 orders 表）
 	var serviceRevenues []struct {
 		Date    string  `json:"date"`
 		Revenue float64 `json:"revenue"`
 	}
-	if err := h.db.Model(&models.Appointment{}).
-		Select("DATE(created_at) as date, COALESCE(SUM(actual_price), 0) as revenue").
-		Where("status = ? AND created_at >= ?", "completed", startDate).
-		Group("DATE(created_at)").
+	if err := h.db.Model(&models.Order{}).Table("orders").
+		Select("substr(orders.created_at, 1, 10) as date, COALESCE(SUM(orders.paid_amount), 0) as revenue").
+		Where("orders.order_type = ? AND orders.created_at >= ?", "service", startDate).
+		Group("date").
 		Order("date ASC").
 		Scan(&serviceRevenues).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get service revenue trend", err.Error()))
 		return
 	}
 
-	// 统计商品营收（从 inventory_logs 表，action_type='sale'）
+	// 统计商品营收（从 orders 表）
 	var productRevenues []struct {
 		Date    string  `json:"date"`
 		Revenue float64 `json:"revenue"`
 	}
-	if err := h.db.Model(&models.InventoryLog{}).
-		Select("DATE(inventory_logs.created_at) as date, COALESCE(SUM(CASE WHEN inventory_logs.change_amount < 0 THEN ABS(inventory_logs.change_amount) * products.retail_price ELSE 0 END), 0) as revenue").
-		Joins("JOIN physical_products AS products ON products.id = inventory_logs.product_id").
-		Where("inventory_logs.action_type = ? AND inventory_logs.created_at >= ?", "sale", startDate).
-		Group("DATE(inventory_logs.created_at)").
+	if err := h.db.Model(&models.Order{}).Table("orders").
+		Select("substr(orders.created_at, 1, 10) as date, COALESCE(SUM(orders.paid_amount), 0) as revenue").
+		Where("orders.order_type = ? AND orders.created_at >= ?", "physical", startDate).
+		Group("date").
 		Order("date ASC").
 		Scan(&productRevenues).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get product revenue trend", err.Error()))
@@ -199,13 +198,14 @@ func (h *DashboardHandler) GetServiceRanking(c *gin.Context) {
 
 	var rankings = make([]ServiceRank, 0)
 
-	// 统计近30天各服务的订单数和营收
+	// 统计近30天各服务的订单数和营收（从 orders 表）
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
 
-	if err := h.db.Model(&models.Appointment{}).
-		Select("service_products.id as service_id, service_products.name as service_name, COUNT(appointments.id) as order_count, COALESCE(SUM(appointments.actual_price), 0) as total_revenue").
+	if err := h.db.Model(&models.Order{}).Table("orders").
+		Select("service_products.id as service_id, service_products.name as service_name, COUNT(orders.id) as order_count, COALESCE(SUM(orders.paid_amount), 0) as total_revenue").
+		Joins("JOIN appointments ON appointments.id = orders.appointment_id").
 		Joins("JOIN service_products ON service_products.id = appointments.service_id").
-		Where("appointments.status = ? AND appointments.created_at >= ?", "completed", thirtyDaysAgo).
+		Where("orders.order_type = ? AND orders.created_at >= ?", "service", thirtyDaysAgo).
 		Group("service_products.id, service_products.name").
 		Order("order_count DESC").
 		Limit(10).
@@ -360,11 +360,12 @@ func (h *DashboardHandler) GetProductSalesOverview(c *gin.Context) {
 
 	var topProducts = make([]ProductSales, 0)
 
-	// 统计热销商品（从 inventory_logs 表）
-	if err := h.db.Model(&models.InventoryLog{}).
-		Select("physical_products.id as product_id, physical_products.name as product_name, COUNT(inventory_logs.id) as sales_count, COALESCE(SUM(ABS(inventory_logs.change_amount) * physical_products.retail_price), 0) as total_revenue").
+	// 统计热销商品（从 orders 表）
+	if err := h.db.Model(&models.Order{}).Table("orders").
+		Select("physical_products.id as product_id, physical_products.name as product_name, COUNT(orders.id) as sales_count, COALESCE(SUM(orders.paid_amount), 0) as total_revenue").
+		Joins("JOIN inventory_logs ON inventory_logs.id = orders.inventory_log_id").
 		Joins("JOIN physical_products ON physical_products.id = inventory_logs.product_id").
-		Where("inventory_logs.action_type = ? AND inventory_logs.created_at >= ?", "sale", startDate).
+		Where("orders.order_type = ? AND orders.created_at >= ?", "physical", startDate).
 		Group("physical_products.id, physical_products.name").
 		Order("sales_count DESC").
 		Limit(5).
@@ -375,20 +376,19 @@ func (h *DashboardHandler) GetProductSalesOverview(c *gin.Context) {
 	}
 	log.Printf("GetProductSalesOverview found %d items", len(topProducts))
 
-	// 统计总销售额和总销量（从 inventory_logs 表）
+	// 统计总销售额和总销量（从 orders 表）
 	var totalRevenue float64
 	var totalSales int64
-	if err := h.db.Model(&models.InventoryLog{}).
-		Joins("JOIN physical_products ON physical_products.id = inventory_logs.product_id").
-		Where("inventory_logs.action_type = ? AND inventory_logs.created_at >= ?", "sale", startDate).
-		Select("COALESCE(SUM(ABS(inventory_logs.change_amount) * physical_products.retail_price), 0)").
+	if err := h.db.Model(&models.Order{}).Table("orders").
+		Where("orders.order_type = ? AND orders.created_at >= ?", "physical", startDate).
+		Select("COALESCE(SUM(orders.paid_amount), 0)").
 		Scan(&totalRevenue).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate total revenue", err.Error()))
 		return
 	}
 
-	if err := h.db.Model(&models.InventoryLog{}).
-		Where("action_type = ? AND created_at >= ?", "sale", startDate).
+	if err := h.db.Model(&models.Order{}).
+		Where("order_type = ? AND created_at >= ?", "physical", startDate).
 		Count(&totalSales).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count total sales", err.Error()))
 		return
@@ -409,5 +409,139 @@ func (h *DashboardHandler) GetProductSalesOverview(c *gin.Context) {
 		"totalSales":    totalSales,
 		"lowStockCount": lowStockCount,
 		"periodDays":    days,
+	}, ""))
+}
+
+func (h *DashboardHandler) GetMarketingMetrics(c *gin.Context) {
+	start, end := parseTimeRange(c.Query("start"), c.Query("end"))
+	granularity := c.DefaultQuery("granularity", "day")
+	orderType := c.Query("order_type")
+	memberLevel := c.Query("member_level")
+
+	groupExpr := "DATE(orders.created_at)"
+	switch granularity {
+	case "week":
+		groupExpr = "strftime('%Y-%W', orders.created_at)"
+	case "month":
+		groupExpr = "strftime('%Y-%m', orders.created_at)"
+	case "day":
+	default:
+		granularity = "day"
+	}
+
+	buildOrdersQuery := func() *gorm.DB {
+		q := h.db.Model(&models.Order{}).Table("orders")
+		if orderType != "" {
+			q = q.Where("orders.order_type = ?", orderType)
+		}
+		if memberLevel != "" {
+			q = q.Joins("JOIN members ON members.id = orders.member_id").Where("members.level = ?", memberLevel)
+		}
+		if !start.IsZero() && !end.IsZero() {
+			startDate := start.Format("2006-01-02")
+			endDate := end.Add(-time.Nanosecond).Format("2006-01-02")
+			q = q.Where("substr(orders.created_at, 1, 10) >= ? AND substr(orders.created_at, 1, 10) <= ?", startDate, endDate)
+		} else if !start.IsZero() {
+			startDate := start.Format("2006-01-02")
+			q = q.Where("substr(orders.created_at, 1, 10) >= ?", startDate)
+		} else if !end.IsZero() {
+			endDate := end.Add(-time.Nanosecond).Format("2006-01-02")
+			q = q.Where("substr(orders.created_at, 1, 10) <= ?", endDate)
+		}
+		return q
+	}
+
+	type Summary struct {
+		TotalSales      float64 `json:"total_sales"`
+		TotalCommission float64 `json:"total_commission"`
+		OrderCount      int64   `json:"order_count"`
+		BuyerCount      int64   `json:"buyer_count"`
+		RepurchaseRate  float64 `json:"repurchase_rate"`
+		ConversionRate  float64 `json:"conversion_rate"`
+	}
+
+	var summary Summary
+	if err := buildOrdersQuery().
+		Select("COALESCE(SUM(orders.paid_amount), 0) as total_sales, COALESCE(SUM(orders.commission_amount), 0) as total_commission, COUNT(*) as order_count, COUNT(DISTINCT orders.member_id) as buyer_count").
+		Scan(&summary).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to query marketing summary", err.Error()))
+		return
+	}
+
+	var repurchaseBuyers int64
+	if err := buildOrdersQuery().
+		Select("orders.member_id").
+		Group("orders.member_id").
+		Having("COUNT(*) >= 2").
+		Count(&repurchaseBuyers).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to query repurchase buyers", err.Error()))
+		return
+	}
+	if summary.BuyerCount > 0 {
+		summary.RepurchaseRate = (float64(repurchaseBuyers) / float64(summary.BuyerCount)) * 100
+	}
+
+	conversionDenominatorQuery := h.db.Model(&models.Appointment{}).Table("appointments")
+	if memberLevel != "" {
+		conversionDenominatorQuery = conversionDenominatorQuery.Joins("JOIN members ON members.id = appointments.member_id").Where("members.level = ?", memberLevel)
+	}
+	if !start.IsZero() && !end.IsZero() {
+		startDate := start.Format("2006-01-02")
+		endDate := end.Add(-time.Nanosecond).Format("2006-01-02")
+		conversionDenominatorQuery = conversionDenominatorQuery.Where("substr(appointments.created_at, 1, 10) >= ? AND substr(appointments.created_at, 1, 10) <= ?", startDate, endDate)
+	} else if !start.IsZero() {
+		startDate := start.Format("2006-01-02")
+		conversionDenominatorQuery = conversionDenominatorQuery.Where("substr(appointments.created_at, 1, 10) >= ?", startDate)
+	} else if !end.IsZero() {
+		endDate := end.Add(-time.Nanosecond).Format("2006-01-02")
+		conversionDenominatorQuery = conversionDenominatorQuery.Where("substr(appointments.created_at, 1, 10) <= ?", endDate)
+	}
+	var appointmentCreatedCount int64
+	if err := conversionDenominatorQuery.Count(&appointmentCreatedCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to query conversion denominator", err.Error()))
+		return
+	}
+
+	var serviceOrderCount int64
+	if orderType == "" || orderType == "service" {
+		serviceOrdersQuery := buildOrdersQuery()
+		if orderType == "" {
+			serviceOrdersQuery = serviceOrdersQuery.Where("orders.order_type = ?", "service")
+		}
+		if err := serviceOrdersQuery.Count(&serviceOrderCount).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to query conversion numerator", err.Error()))
+			return
+		}
+	}
+	if appointmentCreatedCount > 0 {
+		summary.ConversionRate = (float64(serviceOrderCount) / float64(appointmentCreatedCount)) * 100
+	}
+
+	type SeriesRow struct {
+		Period          string  `json:"period"`
+		TotalSales      float64 `json:"total_sales"`
+		TotalCommission float64 `json:"total_commission"`
+		OrderCount      int64   `json:"order_count"`
+		BuyerCount      int64   `json:"buyer_count"`
+	}
+
+	var series []SeriesRow
+	if err := buildOrdersQuery().
+		Select(groupExpr + " as period, COALESCE(SUM(orders.paid_amount), 0) as total_sales, COALESCE(SUM(orders.commission_amount), 0) as total_commission, COUNT(*) as order_count, COUNT(DISTINCT orders.member_id) as buyer_count").
+		Group("period").
+		Order("period ASC").
+		Scan(&series).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to query marketing series", err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(gin.H{
+		"granularity": granularity,
+		"start":       start,
+		"end":         end,
+		"orderType":   orderType,
+		"memberLevel": memberLevel,
+		"summary":     summary,
+		"series":      series,
 	}, ""))
 }
