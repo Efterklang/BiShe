@@ -15,12 +15,11 @@ import (
 
 // InventoryChangeRequest represents the request body for inventory changes
 type InventoryChangeRequest struct {
-	ProductID    uint     `json:"product_id" binding:"required"`
-	ChangeAmount int      `json:"change_amount" binding:"required"`
-	ActionType   string   `json:"action_type" binding:"required,oneof=restock sale adjustment"`
-	MemberID     *uint    `json:"member_id"`   // 购买者ID（销售时可选）
-	SaleAmount   *float64 `json:"sale_amount"` // 销售金额（销售时可选）
-	Remark       string   `json:"remark"`
+	ProductID    uint   `json:"product_id" binding:"required"`
+	ChangeAmount int    `json:"change_amount" binding:"required"`
+	ActionType   string `json:"action_type" binding:"required,oneof=restock sale adjustment"`
+	MemberID     *uint  `json:"member_id"` // 购买者ID（销售时可选）
+	Remark       string `json:"remark"`
 }
 
 // ListInventoryLogs returns all inventory logs
