@@ -126,6 +126,9 @@ func main() {
 		managerAPI.PUT("/products/:id", handlers.UpdateProduct)
 		managerAPI.DELETE("/products/:id", handlers.DeleteProduct)
 
+		// Member AI profile (manager only)
+		managerAPI.GET("/members/:id/ai-profile", handlers.GenerateMemberAIProfile)
+
 		// AI report (manager only)
 		managerAPI.GET("/ai/report", handlers.GenerateAIReport)
 	}

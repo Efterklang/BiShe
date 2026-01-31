@@ -123,3 +123,53 @@ func (c *LLMClient) GenerateAnalysis(prompt string) (string, error) {
 
 	return "", fmt.Errorf("empty response from AI provider")
 }
+
+func (c *LLMClient) GenerateText(systemPrompt, userPrompt string) (string, error) {
+	if c.ApiKey == "" {
+		return "⚠️ AI API Key 未配置。请在服务器环境变量中设置 AI_API_KEY。", nil
+	}
+
+	reqBody := ChatRequest{
+		Model: c.Model,
+		Messages: []ChatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
+		},
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/chat/completions", c.BaseURL)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.ApiKey)
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var chatResp ChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if len(chatResp.Choices) > 0 {
+		return chatResp.Choices[0].Message.Content, nil
+	}
+
+	return "", fmt.Errorf("empty response from AI provider")
+}
