@@ -1,10 +1,4 @@
-import axios from "axios";
-
-// Create a dedicated client for AI requests with a longer timeout
-const aiClient = axios.create({
-	baseURL: "/api", // Assumes Vite proxy is configured to forward /api to the backend
-	timeout: 120000, // 120 seconds timeout for LLM generation
-});
+import api from "./axios";
 
 /**
  * Calls the backend to generate an AI business analysis report.
@@ -12,11 +6,13 @@ const aiClient = axios.create({
  */
 export const generateAIReport = async () => {
 	try {
-		const response = await aiClient.get("/ai/report");
-		// Backend response format: { code: 200, data: { report: "...", raw_data: {...} }, msg: "..." }
-		return response.data.data;
+		return await api.get("/api/ai/report", { timeout: 120000 });
 	} catch (error) {
 		console.error("Failed to generate AI report:", error);
 		throw error;
 	}
+};
+
+export const generateMemberProfile = async (memberId) => {
+	return await api.get(`/api/members/${memberId}/ai-profile`, { timeout: 120000 });
 };

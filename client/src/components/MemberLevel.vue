@@ -30,11 +30,11 @@ const badgeColor = computed(() => {
 // 显示的等级文本
 const displayLevel = computed(() => {
     const levelMap = {
-        'basic': '普通会员',
+        'basic': '普通',
         'vip': '会员',
-        'silver': '白银会员',
-        'gold': '黄金会员',
-        'platinum': '白金会员'
+        'silver': '白银',
+        'gold': '黄金',
+        'platinum': '白金'
     };
     return levelMap[props.level] || '普通会员';
 });
