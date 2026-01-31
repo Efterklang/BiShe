@@ -113,10 +113,12 @@ type InventoryLog struct {
 	Product      PhysicalProduct `gorm:"foreignKey:ProductID" json:"product"`
 	OperatorID   uint            `gorm:"index;not null" json:"operator_id"` // 操作员ID
 	Operator     User            `gorm:"foreignKey:OperatorID" json:"operator"`
-	ChangeAmount int             `gorm:"not null" json:"change_amount"`       // 变动数量（正数为入库，负数为出库）
-	ActionType   string          `gorm:"size:32;not null" json:"action_type"` // "restock"(到货), "sale"(销售), "adjustment"(纠错)
-	BeforeStock  int             `gorm:"not null" json:"before_stock"`        // 变动前库存
-	AfterStock   int             `gorm:"not null" json:"after_stock"`         // 变动后库存
-	OrderID      *uint           `gorm:"index" json:"order_id"`               // 关联订单ID（销售时）
-	Remark       string          `gorm:"size:255" json:"remark"`              // 备注
+	MemberID     *uint           `gorm:"index" json:"member_id"` // 购买者ID（销售时可选）
+	Member       *Member         `gorm:"foreignKey:MemberID" json:"member,omitempty"`
+	ChangeAmount int             `gorm:"not null" json:"change_amount"`                   // 变动数量（正数为入库，负数为出库）
+	ActionType   string          `gorm:"size:32;not null" json:"action_type"`             // "restock"(到货), "sale"(销售), "adjustment"(纠错)
+	BeforeStock  int             `gorm:"not null" json:"before_stock"`                    // 变动前库存
+	AfterStock   int             `gorm:"not null" json:"after_stock"`                     // 变动后库存
+	SaleAmount   *float64        `gorm:"type:decimal(10,2)" json:"sale_amount,omitempty"` // 销售金额（销售时可选）
+	Remark       string          `gorm:"size:255" json:"remark"`                          // 备注
 }
