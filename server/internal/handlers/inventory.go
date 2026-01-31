@@ -179,12 +179,18 @@ func CreateInventoryChange(c *gin.Context) {
 	}
 
 	// Fission commission logic for product sales with member
-	if req.ActionType == "sale" && req.MemberID != nil && req.SaleAmount != nil && *req.SaleAmount > 0 {
+	// 自动计算销售金额：出库数量 * 零售价（出库时 ChangeAmount 为负数）
+	var calculatedSaleAmount float64
+	if req.ActionType == "sale" && req.ChangeAmount < 0 {
+		calculatedSaleAmount = float64(-req.ChangeAmount) * product.RetailPrice
+	}
+
+	if req.ActionType == "sale" && req.MemberID != nil && calculatedSaleAmount > 0 {
 		var member models.Member
 		if err := tx.First(&member, *req.MemberID).Error; err == nil && member.ReferrerID != nil {
-			commissionAmount := util.CalculateRate(*req.SaleAmount, config.GlobalCommission.ReferralRate)
+			commissionAmount := util.CalculateRate(calculatedSaleAmount, config.GlobalCommission.ReferralRate)
 			commissionInCents := util.ToCents(commissionAmount)
-			saleAmountInCents := util.ToCents(*req.SaleAmount)
+			saleAmountInCents := util.ToCents(calculatedSaleAmount)
 
 			if commissionInCents >= 0 && commissionInCents <= saleAmountInCents {
 				var referrer models.Member
