@@ -167,7 +167,6 @@ func CreateInventoryChange(c *gin.Context) {
 		ActionType:   req.ActionType,
 		BeforeStock:  beforeStock,
 		AfterStock:   afterStock,
-		SaleAmount:   req.SaleAmount,
 		Remark:       req.Remark,
 	}
 
