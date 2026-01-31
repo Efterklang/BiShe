@@ -120,18 +120,3 @@ type InventoryLog struct {
 	OrderID      *uint           `gorm:"index" json:"order_id"`               // 关联订单ID（销售时）
 	Remark       string          `gorm:"size:255" json:"remark"`              // 备注
 }
-
-// Order represents a purchase order (service or product).
-type Order struct {
-	BaseModel
-	MemberID      uint    `gorm:"index;not null" json:"member_id"`
-	Member        Member  `gorm:"foreignKey:MemberID" json:"member"`
-	AppointmentID *uint   `gorm:"index" json:"appointment_id"`                     // 关联预约（服务类订单）
-	ProductID     *uint   `gorm:"index" json:"product_id"`                         // 关联商品（商品类订单）
-	Type          string  `gorm:"size:32;not null" json:"type"`                    // "service" or "product"
-	Quantity      int     `gorm:"not null;default:1" json:"quantity"`              // 数量（商品订单）
-	TotalAmount   float64 `gorm:"type:decimal(10,2);not null" json:"total_amount"` // 订单总额
-	ActualPaid    float64 `gorm:"type:decimal(10,2);not null" json:"actual_paid"`  // 实付金额
-	Status        string  `gorm:"size:32;default:'pending'" json:"status"`         // pending/completed/cancelled
-	PaymentMethod string  `gorm:"size:32" json:"payment_method"`                   // 支付方式
-}

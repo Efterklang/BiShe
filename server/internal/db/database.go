@@ -61,7 +61,6 @@ func migrate(database *gorm.DB) error {
 		&models.FissionLog{},
 		&models.PhysicalProduct{},
 		&models.InventoryLog{},
-		&models.Order{},
 	)
 }
 

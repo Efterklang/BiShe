@@ -30,11 +30,11 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	yesterday := today.AddDate(0, 0, -1)
 
-	// 1. 今日营收（已完成订单的实付金额总和）
+	// 1. 今日营收（已完成预约的实际价格总和）
 	var dailyRevenue float64
-	if err := h.db.Model(&models.Order{}).
-		Where("status = ? AND DATE(created_at) = DATE(?)", "completed", today).
-		Select("COALESCE(SUM(actual_paid), 0)").
+	if err := h.db.Model(&models.Appointment{}).
+		Where("status = ? AND DATE(end_time) = DATE(?)", "completed", today).
+		Select("COALESCE(SUM(actual_price), 0)").
 		Scan(&dailyRevenue).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate daily revenue", err.Error()))
 		return
@@ -42,9 +42,9 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 
 	// 昨日营收（用于计算增长率）
 	var yesterdayRevenue float64
-	if err := h.db.Model(&models.Order{}).
-		Where("status = ? AND DATE(created_at) = DATE(?)", "completed", yesterday).
-		Select("COALESCE(SUM(actual_paid), 0)").
+	if err := h.db.Model(&models.Appointment{}).
+		Where("status = ? AND DATE(end_time) = DATE(?)", "completed", yesterday).
+		Select("COALESCE(SUM(actual_price), 0)").
 		Scan(&yesterdayRevenue).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate yesterday revenue", err.Error()))
 		return
@@ -147,15 +147,16 @@ func (h *DashboardHandler) GetRevenueTrend(c *gin.Context) {
 		return
 	}
 
-	// 统计商品营收（从 orders 表，type='product'）
+	// 统计商品营收（从 inventory_logs 表，action_type='sale'）
 	var productRevenues []struct {
 		Date    string  `json:"date"`
 		Revenue float64 `json:"revenue"`
 	}
-	if err := h.db.Model(&models.Order{}).
-		Select("DATE(created_at) as date, COALESCE(SUM(actual_paid), 0) as revenue").
-		Where("type = ? AND status = ? AND created_at >= ?", "product", "completed", startDate).
-		Group("DATE(created_at)").
+	if err := h.db.Model(&models.InventoryLog{}).
+		Select("DATE(inventory_logs.created_at) as date, COALESCE(SUM(CASE WHEN inventory_logs.change_amount < 0 THEN ABS(inventory_logs.change_amount) * products.retail_price ELSE 0 END), 0) as revenue").
+		Joins("JOIN physical_products AS products ON products.id = inventory_logs.product_id").
+		Where("inventory_logs.action_type = ? AND inventory_logs.created_at >= ?", "sale", startDate).
+		Group("DATE(inventory_logs.created_at)").
 		Order("date ASC").
 		Scan(&productRevenues).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to get product revenue trend", err.Error()))
@@ -257,15 +258,26 @@ func (h *DashboardHandler) GetMonthlyStats(c *gin.Context) {
 	now := time.Now()
 	firstDayOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
-	// 本月营收
-	var monthlyRevenue float64
-	if err := h.db.Model(&models.Order{}).
+	// 本月营收（服务+商品）
+	var monthlyServiceRevenue float64
+	if err := h.db.Model(&models.Appointment{}).
 		Where("status = ? AND created_at >= ?", "completed", firstDayOfMonth).
-		Select("COALESCE(SUM(actual_paid), 0)").
-		Scan(&monthlyRevenue).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate monthly revenue", err.Error()))
+		Select("COALESCE(SUM(actual_price), 0)").
+		Scan(&monthlyServiceRevenue).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate monthly service revenue", err.Error()))
 		return
 	}
+
+	var monthlyProductRevenue float64
+	if err := h.db.Model(&models.InventoryLog{}).
+		Joins("JOIN physical_products AS products ON products.id = inventory_logs.product_id").
+		Where("inventory_logs.action_type = ? AND inventory_logs.created_at >= ?", "sale", firstDayOfMonth).
+		Select("COALESCE(SUM(ABS(inventory_logs.change_amount) * products.retail_price), 0)").
+		Scan(&monthlyProductRevenue).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate monthly product revenue", err.Error()))
+		return
+	}
+	monthlyRevenue := monthlyServiceRevenue + monthlyProductRevenue
 
 	// 本月新增会员
 	var monthlyNewMembers int64
@@ -276,24 +288,43 @@ func (h *DashboardHandler) GetMonthlyStats(c *gin.Context) {
 		return
 	}
 
-	// 本月完成订单数
-	var monthlyOrders int64
-	if err := h.db.Model(&models.Order{}).
+	// 本月完成订单数（服务预约数 + 商品销售记录数）
+	var monthlyAppointments int64
+	if err := h.db.Model(&models.Appointment{}).
 		Where("status = ? AND created_at >= ?", "completed", firstDayOfMonth).
-		Count(&monthlyOrders).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count monthly orders", err.Error()))
+		Count(&monthlyAppointments).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count monthly appointments", err.Error()))
 		return
 	}
 
-	// 本月活跃会员数（有过消费的会员）
-	var activeMembers int64
-	if err := h.db.Model(&models.Order{}).
-		Where("status = ? AND created_at >= ?", "completed", firstDayOfMonth).
-		Distinct("member_id").
-		Count(&activeMembers).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count active members", err.Error()))
+	var monthlyProductSales int64
+	if err := h.db.Model(&models.InventoryLog{}).
+		Where("action_type = ? AND created_at >= ?", "sale", firstDayOfMonth).
+		Count(&monthlyProductSales).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count monthly product sales", err.Error()))
 		return
 	}
+	monthlyOrders := monthlyAppointments + monthlyProductSales
+
+	// 本月活跃会员数（有过服务消费或商品购买的会员）
+	var activeServiceMembers int64
+	if err := h.db.Model(&models.Appointment{}).
+		Where("status = ? AND created_at >= ?", "completed", firstDayOfMonth).
+		Distinct("member_id").
+		Count(&activeServiceMembers).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count active service members", err.Error()))
+		return
+	}
+
+	var activeProductMembers int64
+	if err := h.db.Model(&models.InventoryLog{}).
+		Where("action_type = ? AND created_at >= ?", "sale", firstDayOfMonth).
+		Distinct("operator_id").
+		Count(&activeProductMembers).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count active product members", err.Error()))
+		return
+	}
+	activeMembers := activeServiceMembers + activeProductMembers
 
 	c.JSON(http.StatusOK, response.Success(gin.H{
 		"monthlyRevenue":    monthlyRevenue,
@@ -329,11 +360,11 @@ func (h *DashboardHandler) GetProductSalesOverview(c *gin.Context) {
 
 	var topProducts = make([]ProductSales, 0)
 
-	// 统计热销商品
-	if err := h.db.Model(&models.Order{}).
-		Select("physical_products.id as product_id, physical_products.name as product_name, COUNT(orders.id) as sales_count, COALESCE(SUM(orders.actual_paid), 0) as total_revenue").
-		Joins("JOIN physical_products ON physical_products.id = orders.product_id").
-		Where("orders.type = ? AND orders.status = ? AND orders.created_at >= ?", "product", "completed", startDate).
+	// 统计热销商品（从 inventory_logs 表）
+	if err := h.db.Model(&models.InventoryLog{}).
+		Select("physical_products.id as product_id, physical_products.name as product_name, COUNT(inventory_logs.id) as sales_count, COALESCE(SUM(ABS(inventory_logs.change_amount) * physical_products.retail_price), 0) as total_revenue").
+		Joins("JOIN physical_products ON physical_products.id = inventory_logs.product_id").
+		Where("inventory_logs.action_type = ? AND inventory_logs.created_at >= ?", "sale", startDate).
 		Group("physical_products.id, physical_products.name").
 		Order("sales_count DESC").
 		Limit(5).
@@ -344,19 +375,20 @@ func (h *DashboardHandler) GetProductSalesOverview(c *gin.Context) {
 	}
 	log.Printf("GetProductSalesOverview found %d items", len(topProducts))
 
-	// 统计总销售额和总销量
+	// 统计总销售额和总销量（从 inventory_logs 表）
 	var totalRevenue float64
 	var totalSales int64
-	if err := h.db.Model(&models.Order{}).
-		Where("type = ? AND status = ? AND created_at >= ?", "product", "completed", startDate).
-		Select("COALESCE(SUM(actual_paid), 0)").
+	if err := h.db.Model(&models.InventoryLog{}).
+		Joins("JOIN physical_products ON physical_products.id = inventory_logs.product_id").
+		Where("inventory_logs.action_type = ? AND inventory_logs.created_at >= ?", "sale", startDate).
+		Select("COALESCE(SUM(ABS(inventory_logs.change_amount) * physical_products.retail_price), 0)").
 		Scan(&totalRevenue).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate total revenue", err.Error()))
 		return
 	}
 
-	if err := h.db.Model(&models.Order{}).
-		Where("type = ? AND status = ? AND created_at >= ?", "product", "completed", startDate).
+	if err := h.db.Model(&models.InventoryLog{}).
+		Where("action_type = ? AND created_at >= ?", "sale", startDate).
 		Count(&totalSales).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to count total sales", err.Error()))
 		return

@@ -21,11 +21,11 @@ func GetDashboardStats(c *gin.Context) {
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	yesterday := today.AddDate(0, 0, -1)
 
-	// 1. 今日营收（已完成订单的实付金额总和）
+	// 1. 今日营收（已完成预约的实际价格总和）
 	var dailyRevenue float64
-	if err := db.DB.Model(&models.Order{}).
-		Where("status = ? AND DATE(created_at) = DATE(?)", "completed", today).
-		Select("COALESCE(SUM(actual_paid), 0)").
+	if err := db.DB.Model(&models.Appointment{}).
+		Where("status = ? AND DATE(end_time) = DATE(?)", "completed", today).
+		Select("COALESCE(SUM(actual_price), 0)").
 		Scan(&dailyRevenue).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate daily revenue", err))
 		return
@@ -33,9 +33,9 @@ func GetDashboardStats(c *gin.Context) {
 
 	// 昨日营收（用于计算增长率）
 	var yesterdayRevenue float64
-	if err := db.DB.Model(&models.Order{}).
-		Where("status = ? AND DATE(created_at) = DATE(?)", "completed", yesterday).
-		Select("COALESCE(SUM(actual_paid), 0)").
+	if err := db.DB.Model(&models.Appointment{}).
+		Where("status = ? AND DATE(end_time) = DATE(?)", "completed", yesterday).
+		Select("COALESCE(SUM(actual_price), 0)").
 		Scan(&yesterdayRevenue).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(http.StatusInternalServerError, "Failed to calculate yesterday revenue", err))
 		return
